@@ -1,0 +1,6 @@
+# Secrets
+.discord_token
+
+
+# Python
+.env
