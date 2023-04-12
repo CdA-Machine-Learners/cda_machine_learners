@@ -7,15 +7,21 @@ USAGE:
 
 '''
 
+import aiohttp
 import discord
 from discord.ext import commands
-import random
+import openai
 import os
-import aiohttp
+import random
+from transformers import pipeline
 
 TOKEN = os.getenv('TOKEN')
 if TOKEN is None:
     raise Exception('TOKEN env var must be set to a valid Discord token.')
+
+openai.api_key = os.getenv('OPENAI_API_KEY')
+if openai.api_key is None:
+    raise Exception('OPENAI_API_KEY env var must be set to a valid openai api key.')
 
 description = '''An example bot to showcase the discord.ext.commands extension
 module.
@@ -72,7 +78,15 @@ url = "http://127.0.0.1:7860"
 @bot.hybrid_command()
 @discord.ext.commands.guild_only() # don't respond on DMs
 async def image(ctx, prompt: str):
-    """ Pass in a detailed description """
+    """
+    Given text, the model will return a generated image.
+
+    task: https://huggingface.co/tasks/text-to-image
+    model: TODO
+    size: TODO
+    dataset: TODO
+    source: TODO
+    """
 
     # endpoints must respond in <3 sec, unless they defer first. This
     # shows in the UI as "thinking..."
@@ -101,6 +115,78 @@ async def image(ctx, prompt: str):
             txt = f'`/image` {prompt}'
             await ctx.reply(file=file, content=txt)
 
+##################################################
+# Sentiment Analysis
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def sentiment_analysis(ctx, prompt: str):
+    """
+    Given text, the model will return a polarity (positive, negative,
+    neutral) or a sentiment (happiness, anger).
+
+    task: https://huggingface.co/tasks/text-classification
+    model: distilbert-base-uncased-finetuned-sst-2-english
+    size: 268 MB
+    dataset: https://huggingface.co/datasets/sst2
+    source: https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english
+    """
+    await ctx.defer()
+    model = pipeline('sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english')
+    await ctx.send(f'`[Text Classification]` {model(prompt)}')
+
+##################################################
+# Text Generation
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def text_generation(ctx, prompt: str):
+    """
+    Given text, the model will return generated text.
+
+    task: https://huggingface.co/tasks/text-generation
+    model: gpt2
+    size: 548 MB
+    dataset:
+        - https://github.com/openai/gpt-2/blob/master/domains.txt
+        - https://huggingface.co/datasets/openwebtext
+    source: https://huggingface.co/gpt2
+    """
+    await ctx.defer()
+    model = pipeline('text-generation', model='gpt2')
+    await ctx.send(f'`[Text Generation]` {model(prompt)}')
+
+##################################################
+# ChatGPT4
+
+import openai
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def gpt4_chat(ctx, prompt: str):
+    """
+    Given a chat conversation, the model will return a chat completion response.
+
+    task: https://huggingface.co/tasks/conversational
+    model: chatgpt4
+    size: unknown
+    dataset: unknown
+    source: closed
+    """
+    await ctx.defer()
+    completion = openai.ChatCompletion.create(
+        model='gpt-4',
+        messages=[
+            # The system message helps set the behavior of the assistant
+            {'role': 'system', 'content': 'You are a very knowledgable entity.'},
+            # The user messages help instruct the assistant
+            {'role': 'user', 'content': prompt},
+            # The assistant messages help store prior responses
+            # (provides context or desired behavior)
+            # {'role': 'assistant', 'content': 'TODO!'},
+        ],
+    )
+    await ctx.send(f'`[Conversation GPT4]` {completion.choices[0].message}')
 
 
 ##################################################
