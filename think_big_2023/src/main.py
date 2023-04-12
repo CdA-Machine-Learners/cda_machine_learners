@@ -66,8 +66,13 @@ from PIL import Image
 url = "http://127.0.0.1:7860"
 
 @bot.hybrid_command()
+@discord.ext.commands.guild_only() # don't respond on DMs
 async def image(ctx, prompt: str):
     """ Pass in a detailed description """
+
+    # endpoints must respond in <3 sec, unless the defer first. This
+    # shows in the UI as "thinking..."
+    await ctx.defer() 
 
     payload = {
         "prompt": prompt,
@@ -79,10 +84,11 @@ async def image(ctx, prompt: str):
     r = response.json()
 
     for i in r['images']:
-        # image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
         image = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
-        file=discord.File(image_data, 'image.png')
-        await ctx.send(file=file)
+        file=discord.File(image, 'image.png')
+        txt = f'`/image` {prompt}'
+        await ctx.reply(file=file, content=txt)
+
 
 
 ##################################################
