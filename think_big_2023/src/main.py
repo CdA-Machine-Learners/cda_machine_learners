@@ -53,4 +53,39 @@ async def roll(ctx, dice: str):
     result = ', '.join(str(random.randint(1, limit)) for r in range(rolls))
     await ctx.send(result)
 
+
+##################################################
+# Stable Diffusion
+
+import json
+import requests
+import io
+import base64
+from PIL import Image
+
+url = "http://127.0.0.1:7860"
+
+@bot.hybrid_command()
+async def image(ctx, prompt: str):
+    """ Pass in a detailed description """
+
+    payload = {
+        "prompt": prompt,
+        "steps": 40
+    }
+
+    response = requests.post(url=f'{url}/sdapi/v1/txt2img', json=payload)
+
+    r = response.json()
+
+    for i in r['images']:
+        # image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
+        image = io.BytesIO(base64.b64decode(i.split(",",1)[0]))
+        file=discord.File(image_data, 'image.png')
+        await ctx.send(file=file)
+
+
+##################################################
+# Run
+
 bot.run(TOKEN)
