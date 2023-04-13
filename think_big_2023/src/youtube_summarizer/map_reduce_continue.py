@@ -16,7 +16,7 @@ MAP_PROMPT = PromptTemplate(
     "{text}"
     
     
-    Right a short summary here:
+    Write a short summary here:
     """
 )
 
@@ -67,9 +67,9 @@ class MapReduceContinue:
         self.encoder = encoder
         self.ai_model = 'text-curie-001'
         self.PROMPT_TOKENS = len(encoder.encode(CHAPTER_CONTINUE_PROMPT.template))
-        self.TOKEN_LIMIT = 4050
-        self.RESPONSE_TOKENS = 650
-        self.OVERLAP_TOKENS = 150
+        self.TOKEN_LIMIT = 2040
+        self.RESPONSE_TOKENS = 450
+        self.OVERLAP_TOKENS = 124
         self.CONTINUE_TOKENS = self.OVERLAP_TOKENS // 2
         self.MAX_TOKENS = self.TOKEN_LIMIT - self.PROMPT_TOKENS - self.OVERLAP_TOKENS - self.RESPONSE_TOKENS - self.CONTINUE_TOKENS
 
