@@ -2,10 +2,11 @@ discord.py==2.2.2
 Pillow==9.5.0
 requests==2.28.2
 
-# Ai APIs
+# Ai
 openai==0.27.4
 langchain==0.0.138
 tiktoken==0.3.3
+transformers==4.27.4
 
 # Youtube Summarizer
 pytube==12.1.3
