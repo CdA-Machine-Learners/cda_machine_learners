@@ -1,7 +1,5 @@
 '''
 
-TEST FRM JOSH
-
 A Discord Bot
 
 USAGE:
@@ -80,15 +78,7 @@ url = "http://127.0.0.1:7860"
 @bot.hybrid_command()
 @discord.ext.commands.guild_only() # don't respond on DMs
 async def image(ctx, prompt: str):
-    """
-    Given text, the model will return a generated image.
-
-    task: https://huggingface.co/tasks/text-to-image
-    model: TODO
-    size: TODO
-    dataset: TODO
-    source: TODO
-    """
+    """Provide detailed text prompt for the image you want"""
 
     # endpoints must respond in <3 sec, unless they defer first. This
     # shows in the UI as "thinking..."
