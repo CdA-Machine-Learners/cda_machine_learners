@@ -4,3 +4,6 @@
 
 # Python
 .env
+think_big_2023/venv/
+*__pycache__
+*.md
