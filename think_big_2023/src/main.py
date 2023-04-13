@@ -1,5 +1,7 @@
 '''
 
+TEST FRM JOSH
+
 A Discord Bot
 
 USAGE:
