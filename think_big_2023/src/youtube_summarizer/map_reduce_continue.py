@@ -65,7 +65,7 @@ class MapReduceContinue:
         self.debug = debug
         self.encoding = "p50k_base"
         self.encoder = encoder
-        self.ai_model = 'text-davinci-003'
+        self.ai_model = 'text-curie-001'
         self.PROMPT_TOKENS = len(encoder.encode(CHAPTER_CONTINUE_PROMPT.template))
         self.TOKEN_LIMIT = 4050
         self.RESPONSE_TOKENS = 650
@@ -156,7 +156,7 @@ class MapReduceContinue:
             if response.choices[0].finish_reason == 'length':
                 print(f"Response {i} was stopped because of length")
 
-        return ''.join(responses)
+        return ''.join(responses).strip()
 
     def summarize(self, text, chapter=None):
         if chapter is None:
