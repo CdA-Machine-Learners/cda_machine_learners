@@ -64,13 +64,11 @@ class Model(nn.Module):
         super(Model, self).__init__()
         IMG_SIZE = 28
         self.w = nn.Sequential(
-            nn.Linear(IMG_SIZE*IMG_SIZE, 128),
-            # nn.Tanh(),
-            # nn.Linear(128, 128),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(128, 10),
-            nn.Softmax(dim=1),
+            nn.Linear(IMG_SIZE*IMG_SIZE, 512),
+            nn.Tanh(),
+            nn.Linear(512, 512),
+            nn.Tanh(),
+            nn.Linear(512, 10)
         )
     def forward(self, x):
         return self.w(x)
@@ -117,20 +115,16 @@ def test(dataloader, model, loss_fn):
 ##################################################
 # BOMBS AWAY
 
-try:
-    already_loaded
-except:
-    model = Model().to(DEVICE)
-    loss_fn = nn.MSELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+model = Model().to(DEVICE)
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
-    epochs = 5
-    for t in range(epochs):
-        print(f'Epoch {t+1}\n------------------------------')
-        train(train_dl, model, loss_fn, optimizer)
-        test(test_dl, model, loss_fn)
-    print('Trained.')
-    already_loaded = True
+epochs = 100
+for t in range(epochs):
+    print(f'Epoch {t+1}\n------------------------------')
+    train(train_dl, model, loss_fn, optimizer)
+    test(test_dl, model, loss_fn)
+print('Done.')
 
 
 
@@ -140,96 +134,3 @@ except:
 #     plt.subplot(4, 4, i+1)
 #     plt.imshow(img.detach().cpu().numpy())
 # plt.show()
-
-
-##################################################
-##################################################
-
-import numpy as np
-import cv2, math, random
-
-
-## Neural Network stuff here
-
-## Completed NN
-
-def image_to_array(img, size=28):
-    # Convert image to array
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.resize(img, (size, size))
-    img = cv2.GaussianBlur(img, (3, 3), 0)
-    #img = cv2.bitwise_not(img)
-    #img = img / 255.0
-    #img = img.reshape(1, size, size, 1)
-
-    # cv2.imshow("Before NN", img)
-
-    ret = []
-    for i in range(size):
-        for j in range(size):
-            ret.append(math.ceil(img[i][j]))
-
-    return ret
-
-
-#create a 512x512 black image
-nn_img = np.zeros((1024,256,3), np.uint8)
-draw = np.zeros((512,512,3), np.uint8)
-
-def drawCircles(img, ary):
-    #img = img.copy()
-    ary = ary.tolist()
-    # Calc some dimensions
-    init = 30
-    height = img.shape[0]
-    step = (height - init * 2) / len(ary)
-
-    #draw a circle
-    x = math.floor(img.shape[1] / 2)
-    y = step / 2 + init / 2
-    for t in ary:
-        color = (0, math.floor(t * 255), math.floor((1 - t) * 255))
-
-        #non filled circle
-        cv2.circle(img, (x, math.floor(y)), math.floor(step * 0.3), (255,0,0), 3)
-        #filled circle
-        cv2.circle(img, (x, math.floor(y)), math.floor(step * 0.3), color, -1)
-
-        y += step
-
-    return img
-
-def draw_mouse(event, x, y, flags, param):
-    if event == cv2.EVENT_RBUTTONDOWN or event == cv2.EVENT_LBUTTONDBLCLK:
-        (w,h,d) = draw.shape
-        cv2.rectangle(draw, (0,0), (w,h), (0,0,0), -1)
-
-    if event == cv2.EVENT_MOUSEMOVE and flags == cv2.EVENT_FLAG_LBUTTON:
-        cv2.circle(draw, (x, y), brush_size, (255, 255, 255), -1)
-
-        # Run the neural network
-        # print( image_to_array(draw) )
-        x = image_to_array(draw)
-        x = torch.tensor(x).to(DEVICE).unsqueeze(0) / 255
-        x += torch.randn_like(x) / 1000
-        # ary = [random.random() for i in range(10)]
-        ary = model(x)[0]
-        drawCircles( nn_img, ary)
-
-# First draw
-model.eval()
-ary = torch.zeros(10)# [random.random() for i in range(10)]
-drawCircles( nn_img, ary)
-
-brush_size = 25
-
-cv2.namedWindow(winname="Draw a number")
-cv2.setMouseCallback("Draw a number", draw_mouse)
-
-while True:
-    cv2.imshow("Draw a number", draw)
-    cv2.imshow("AI Output", nn_img)
-    if cv2.waitKey(10) & 0xFF == 27:
-        break
-
-cv2.destroyAllWindows()
