@@ -6,6 +6,21 @@ import cv2, math, random
 
 ## Completed NN
 
+def image_to_array(img, size=28):
+    # Convert image to array
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.resize(img, (size, size))
+    #img = cv2.bitwise_not(img)
+    #img = img / 255.0
+    #img = img.reshape(1, size, size, 1)
+    cv2.imshow("Before NN", img)
+
+    ret = []
+    for i in range(size):
+        for j in range(size):
+            ret.append(math.ceil(img[i][j] / 255))
+
+    return ret
 
 
 #create a 512x512 black image
@@ -41,9 +56,11 @@ def draw_mouse(event, x, y, flags, param):
         cv2.rectangle(draw, (0,0), (w,h), (0,0,0), -1)
 
     if event == cv2.EVENT_MOUSEMOVE and flags == cv2.EVENT_FLAG_LBUTTON:
-        cv2.circle(draw, (x, y), 4, (255, 255, 255), -1)
+        cv2.circle(draw, (x, y), 8, (255, 255, 255), -1)
 
         # Run the neural network
+        print( image_to_array(draw) )
+
 
         ary = [random.random() for i in range(10)]
         drawCircles( nn_img, ary)
