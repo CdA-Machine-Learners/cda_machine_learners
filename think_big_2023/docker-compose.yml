@@ -4,16 +4,13 @@ services:
   redis:
     image: redis
     env_file: .env
-    ports:
-      - 6379:6379
     volumes:
       - ./volumes/redis:/data
       - ./docker/redis.conf:/redis.conf
       - ./docker/sysctl.conf:/etc/sysctl.conf
     restart: unless-stopped
     command: redis-server /redis.conf --bind 0.0.0.0
-    networks:
-      - default
+    network_mode: "host"
 
   discord_bot:
     build:
@@ -22,12 +19,8 @@ services:
     command: bash -c "watchmedo auto-restart --interval 15 --patterns='*.py' --recursive python main.py"
     volumes:
       - ./src:/app
-    ports:
-      - 443:443
-      - 7860:7860
     env_file: .env
-    networks:
-      - default
+    network_mode: "host"
     depends_on:
         - redis
 
@@ -45,12 +38,4 @@ services:
     depends_on:
       - discord_bot
       - redis
-    networks:
-      - default
-
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.16.0.0/24
+    network_mode: "host"
