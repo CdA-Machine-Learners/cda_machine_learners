@@ -4,6 +4,16 @@
 
 # Python
 .env
-think_big_2023/venv/
+*/venv
 *__pycache__
+
 *.md
+
+# Docker
+think_big_2023/docker/redis.conf
+think_big_2023/docker/sysctl.conf
+/think_big_2023/volumes
+think_big_2023/venv/
+
+# Model Cache
+think_big_2023/src/models

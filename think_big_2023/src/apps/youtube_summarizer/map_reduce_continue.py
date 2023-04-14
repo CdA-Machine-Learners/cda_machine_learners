@@ -1,11 +1,8 @@
-import openai
 import tiktoken
-import os
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.prompts import PromptTemplate
+from apps import our_openai as openai
 
-openai.organization = os.environ.get("OPENAI_ORG", None)
-openai.api_key = os.environ.get("OPENAI_API_KEY", None)
 
 MAP_PROMPT = PromptTemplate(
     input_variables=["text"],
@@ -67,7 +64,7 @@ class MapReduceContinue:
         self.encoder = encoder
         self.ai_model = 'text-curie-001'
         self.PROMPT_TOKENS = len(encoder.encode(CHAPTER_CONTINUE_PROMPT.template))
-        self.TOKEN_LIMIT = 2040
+        self.TOKEN_LIMIT = 2000
         self.RESPONSE_TOKENS = 450
         self.OVERLAP_TOKENS = 124
         self.CONTINUE_TOKENS = self.OVERLAP_TOKENS // 2

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis
+    env_file: .env
+    ports:
+      - 6379:6379
+    volumes:
+      - ./volumes/redis:/data
+      - ./docker/redis.conf:/redis.conf
+      - ./docker/sysctl.conf:/etc/sysctl.conf
+    restart: unless-stopped
+    command: redis-server /redis.conf --bind 0.0.0.0
+    networks:
+      - default
+
+  discord_bot:
+    build:
+        context: .
+        dockerfile: docker/Dockerfile
+    command: bash -c "watchmedo auto-restart --interval 15 --patterns='*.py' --recursive python main.py"
+    volumes:
+      - ./src:/app
+    ports:
+      - 443:443
+      - 7860:7860
+    env_file: .env
+    networks:
+      - default
+    depends_on:
+        - redis
+
+  celery_worker:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: bash -c "watchmedo auto-restart --patterns='*.py' --recursive /entrypoints/celery_worker.sh"
+    volumes:
+      - ./src:/app
+    environment:
+      - HOSTNAME_COMMAND='hostname -i'
+    env_file: .env
+    depends_on:
+      - discord_bot
+      - redis
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.0.0/24

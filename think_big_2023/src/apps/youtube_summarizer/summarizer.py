@@ -1,6 +1,6 @@
 from time import sleep
-from youtube_summarizer.map_reduce_continue import MapReduceContinue
-from youtube_summarizer.pytube_patched import CustomYouTube
+from apps.youtube_summarizer.map_reduce_continue import MapReduceContinue
+from apps.youtube_summarizer.pytube_patched import CustomYouTube
 
 
 class YoutubeSummarizer:
