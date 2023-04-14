@@ -3,19 +3,25 @@
 A Discord Bot
 
 USAGE:
-  TOKEN=$(cat .discord_token) python src/main.py
+  OPENAI_API_KEY=$(cat .openai_token) TOKEN=$(cat .discord_token) python src/main.py
 
 '''
 
+import aiohttp
 import discord
 from discord.ext import commands
-import random
+import openai
 import os
-import aiohttp
+import random
+from transformers import pipeline
 
 TOKEN = os.getenv('TOKEN')
 if TOKEN is None:
     raise Exception('TOKEN env var must be set to a valid Discord token.')
+
+openai.api_key = os.getenv('OPENAI_API_KEY')
+if openai.api_key is None:
+    raise Exception('OPENAI_API_KEY env var must be set to a valid openai api key.')
 
 description = '''An example bot to showcase the discord.ext.commands extension
 module.
@@ -39,23 +45,6 @@ async def on_ready():
     print('done')
     print('------')
 
-@bot.hybrid_command()
-async def add(ctx, left: int, right: int):
-    """Adds two numbers together."""
-    await ctx.send(left + right)
-
-@bot.hybrid_command()
-async def roll(ctx, dice: str):
-    """Rolls a dice in NdN format."""
-    try:
-        rolls, limit = map(int, dice.split('d'))
-    except Exception:
-        await ctx.send('Format has to be in NdN!')
-        return
-
-    result = ', '.join(str(random.randint(1, limit)) for r in range(rolls))
-    await ctx.send(result)
-
 
 ##################################################
 # Stable Diffusion
@@ -72,7 +61,7 @@ url = "http://127.0.0.1:7860"
 @bot.hybrid_command()
 @discord.ext.commands.guild_only() # don't respond on DMs
 async def image(ctx, prompt: str):
-    """ Pass in a detailed description """
+    """Provide detailed text prompt for the image you want"""
 
     # endpoints must respond in <3 sec, unless they defer first. This
     # shows in the UI as "thinking..."
@@ -101,9 +90,113 @@ async def image(ctx, prompt: str):
             txt = f'`/image` {prompt}'
             await ctx.reply(file=file, content=txt)
 
+            
+##################################################
+# Sentiment Analysis
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def sentiment(ctx, prompt: str):
+    """Predict the polarity (positive, negative, neutral) or a sentiment (happiness, anger)."""
+    await ctx.defer()
+    model = pipeline('sentiment-analysis',
+                     model='distilbert-base-uncased-finetuned-sst-2-english'
+    )
+    out = model(prompt)[0]
+    fmt = f'''
+**`[Sentiment Analysis]`** 
+{prompt}
+*Prediction:* {out['label']}
+*Confidence:* {out['score']:>0.4f}
+'''
+    await ctx.send(fmt)
+
+    
+##################################################
+# Text Continuation
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def continuation(ctx, prompt: str):
+    """Given text, the model will predict how it might have continued."""
+    await ctx.defer()
+    model = pipeline('text-generation', model='gpt2')
+    out = model(prompt) 
+    fmt = f'''
+**`[Text Continuation]`** 
+*{prompt}* 
+{out[0]['generated_text']}
+'''
+    await ctx.send(fmt)
+
+
+##################################################
+# ChatGPT4
+
+import openai
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def chat(ctx, prompt: str):
+    """Chat with a robot. Ask it for a poem, or historical fact, or a joke!"""
+    await ctx.defer()
+    completion = openai.ChatCompletion.create(
+        model='gpt-3.5-turbo',
+        messages=[
+            # The system message helps set the behavior of the assistant
+            {'role': 'system', 'content': 'You are a very knowledgable entity.'},
+            # The user messages help instruct the assistant
+            {'role': 'user', 'content': prompt},
+            # The assistant messages help store prior responses
+            # (provides context or desired behavior)
+            # {'role': 'assistant', 'content': 'TODO!'},
+        ],
+    )
+    out = f'''
+**`[ChatGPT]`** 
+*Q:* {prompt}
+*A:* {completion.choices[0].message['content']}
+'''
+    await ctx.send(out)
+
+    
+##################################################
+# Youtube Summarizer
+
+from youtube_summarizer.summarizer import YoutubeSummarizer
+
+# Will hold summaries for previously seen URLs.
+cache = {}
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def youtube(ctx, youtube_url: str = 'https://www.youtube.com/watch?v=dC1-qgR7YO0'):
+    """Provide a URL of a Youtube video you'd like summarized, or hit enter to accept the default.    """
+    await ctx.defer()
+
+    try:
+        # Check cache
+        if url in cache:
+            out = cache[url]
+
+        # Generate summary fresh
+        else:
+            yt = YoutubeSummarizer(url, debug=False)
+            out = yt.summarize()
+            cache[url] = out
+            
+        fmt = f'''
+**`[Youtube Summarizer]`**
+*URL:* {url}
+{out}
+'''
+        await ctx.send(fmt)
+    except Exception as e:
+        await ctx.send(f'Exception: {str(e)}')
 
 
 ##################################################
 # Run
 
 bot.run(TOKEN)
+
