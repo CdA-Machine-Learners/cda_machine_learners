@@ -12,7 +12,7 @@ class YoutubeSummarizer:
         self._grouped_transcripts = None
         self.debug = debug
 
-    def _get_youtube_with_retries(self, max_retries=3):
+    def _get_youtube_with_retries(self, max_retries=1):
         for i in range(max_retries):
             try:
                 yt = CustomYouTube(self.yt_video)

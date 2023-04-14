@@ -3,7 +3,7 @@
 A Discord Bot
 
 USAGE:
-  TOKEN=$(cat .discord_token) python src/main.py
+  OPENAI_API_KEY=$(cat .openai_token) TOKEN=$(cat .discord_token) python src/main.py
 
 '''
 
@@ -44,23 +44,6 @@ async def on_ready():
     bot.session = aiohttp.ClientSession() # to allow async requests
     print('done')
     print('------')
-
-@bot.hybrid_command()
-async def add(ctx, left: int, right: int):
-    """Adds two numbers together."""
-    await ctx.send(left + right)
-
-@bot.hybrid_command()
-async def roll(ctx, dice: str):
-    """Rolls a dice in NdN format."""
-    try:
-        rolls, limit = map(int, dice.split('d'))
-    except Exception:
-        await ctx.send('Format has to be in NdN!')
-        return
-
-    result = ', '.join(str(random.randint(1, limit)) for r in range(rolls))
-    await ctx.send(result)
 
 
 ##################################################
@@ -107,46 +90,45 @@ async def image(ctx, prompt: str):
             txt = f'`/image` {prompt}'
             await ctx.reply(file=file, content=txt)
 
+            
 ##################################################
 # Sentiment Analysis
 
 @bot.hybrid_command()
 @discord.ext.commands.guild_only()
-async def sentiment_analysis(ctx, prompt: str):
-    """
-    Given text, the model will return a polarity (positive, negative,
-    neutral) or a sentiment (happiness, anger).
-
-    task: https://huggingface.co/tasks/text-classification
-    model: distilbert-base-uncased-finetuned-sst-2-english
-    size: 268 MB
-    dataset: https://huggingface.co/datasets/sst2
-    source: https://huggingface.co/distilbert-base-uncased-finetuned-sst-2-english
-    """
+async def sentiment(ctx, prompt: str):
+    """Predict the polarity (positive, negative, neutral) or a sentiment (happiness, anger)."""
     await ctx.defer()
-    model = pipeline('sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english')
-    await ctx.send(f'`[Text Classification]` {model(prompt)}')
+    model = pipeline('sentiment-analysis',
+                     model='distilbert-base-uncased-finetuned-sst-2-english'
+    )
+    out = model(prompt)[0]
+    fmt = f'''
+**`[Sentiment Analysis]`** 
+{prompt}
+*Prediction:* {out['label']}
+*Confidence:* {out['score']:>0.4f}
+'''
+    await ctx.send(fmt)
 
+    
 ##################################################
-# Text Generation
+# Text Continuation
 
 @bot.hybrid_command()
 @discord.ext.commands.guild_only()
-async def text_generation(ctx, prompt: str):
-    """
-    Given text, the model will return generated text.
-
-    task: https://huggingface.co/tasks/text-generation
-    model: gpt2
-    size: 548 MB
-    dataset:
-        - https://github.com/openai/gpt-2/blob/master/domains.txt
-        - https://huggingface.co/datasets/openwebtext
-    source: https://huggingface.co/gpt2
-    """
+async def continuation(ctx, prompt: str):
+    """Given text, the model will predict how it might have continued."""
     await ctx.defer()
     model = pipeline('text-generation', model='gpt2')
-    await ctx.send(f'`[Text Generation]` {model(prompt)}')
+    out = model(prompt) 
+    fmt = f'''
+**`[Text Continuation]`** 
+*{prompt}* 
+{out[0]['generated_text']}
+'''
+    await ctx.send(fmt)
+
 
 ##################################################
 # ChatGPT4
@@ -155,19 +137,11 @@ import openai
 
 @bot.hybrid_command()
 @discord.ext.commands.guild_only()
-async def gpt4_chat(ctx, prompt: str):
-    """
-    Given a chat conversation, the model will return a chat completion response.
-
-    task: https://huggingface.co/tasks/conversational
-    model: chatgpt4
-    size: unknown
-    dataset: unknown
-    source: closed
-    """
+async def chat(ctx, prompt: str):
+    """Chat with a robot. Ask it for a poem, or historical fact, or a joke!"""
     await ctx.defer()
     completion = openai.ChatCompletion.create(
-        model='gpt-4',
+        model='gpt-3.5-turbo',
         messages=[
             # The system message helps set the behavior of the assistant
             {'role': 'system', 'content': 'You are a very knowledgable entity.'},
@@ -178,10 +152,51 @@ async def gpt4_chat(ctx, prompt: str):
             # {'role': 'assistant', 'content': 'TODO!'},
         ],
     )
-    await ctx.send(f'`[Conversation GPT4]` {completion.choices[0].message}')
+    out = f'''
+**`[ChatGPT]`** 
+*Q:* {prompt}
+*A:* {completion.choices[0].message['content']}
+'''
+    await ctx.send(out)
+
+    
+##################################################
+# Youtube Summarizer
+
+from youtube_summarizer.summarizer import YoutubeSummarizer
+
+# Will hold summaries for previously seen URLs.
+cache = {}
+
+@bot.hybrid_command()
+@discord.ext.commands.guild_only()
+async def youtube(ctx, youtube_url: str = 'https://www.youtube.com/watch?v=dC1-qgR7YO0'):
+    """Provide a URL of a Youtube video you'd like summarized, or hit enter to accept the default.    """
+    await ctx.defer()
+
+    try:
+        # Check cache
+        if url in cache:
+            out = cache[url]
+
+        # Generate summary fresh
+        else:
+            yt = YoutubeSummarizer(url, debug=False)
+            out = yt.summarize()
+            cache[url] = out
+            
+        fmt = f'''
+**`[Youtube Summarizer]`**
+*URL:* {url}
+{out}
+'''
+        await ctx.send(fmt)
+    except Exception as e:
+        await ctx.send(f'Exception: {str(e)}')
 
 
 ##################################################
 # Run
 
 bot.run(TOKEN)
+
