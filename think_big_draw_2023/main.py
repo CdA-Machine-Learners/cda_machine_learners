@@ -149,8 +149,8 @@ from queue import Queue, Empty
 from threading import Thread
 
 #create a 512x512 black image
-nn_img = np.zeros((1024,256,3), np.uint8)
-draw = np.zeros((1024,1024,3), np.uint8)
+nn_img = np.zeros((1008,256,3), np.uint8)
+draw = np.zeros((1008,1008,3), np.uint8)
 que = Queue()
 
 
@@ -213,17 +213,23 @@ def threadWorker(queue):
 
 
 def vizualizeNN():
-    # Run the neural network
+    # Convert the image into a pixel array
     pix_ary = image_to_array(draw)
 
-    # Convert to tensor
+    # Convert to pixels to tensor
     tens = torch.tensor(pix_ary).to(DEVICE).unsqueeze(0) / 255
 
     # What does this do?
     # tens += torch.randn_like(tens) / 1000
-
-    # Get the result of the NN
+    # Run the NN, and get the output
     ary = model(tens)[0]
+
+    #for layer in model.parameters():
+    #    if len(layer.shape) == 1 and layer.shape[0] == 128:
+    #        print(layer[29])
+    #        print(layer)
+
+    # Draw the NN
     drawCircles(nn_img, ary)
 
 
