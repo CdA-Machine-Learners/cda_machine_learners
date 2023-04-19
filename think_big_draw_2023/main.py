@@ -1,4 +1,4 @@
-#!/home/josh/_/cda_machine_learners/think_big_2023/.venv/bin/python
+#!.venv/bin/python
 
 '''.
 An MNIST Generator
@@ -9,7 +9,6 @@ This was created in a live coding session for the CdA Machine Learners Group
 
 
 import numpy as np
-import torch as torch
 import torch as th
 import matplotlib.pyplot as plt
 import torch.nn as nn
@@ -17,6 +16,8 @@ from torch import einsum
 import torchvision
 from torchvision.datasets import MNIST
 import matplotlib.pyplot as plt
+
+import torch, sys
 
 SEED = 0
 torch.random.manual_seed(SEED)
@@ -28,13 +29,13 @@ np.random.seed(SEED)
 
 LR = 5e-3
 BATCH_SIZE = 100
-DEVICE = 'cuda'
+DEVICE = 'cuda' if len(sys.argv) <= 1 else sys.argv[1]
 
 
 ##################################################
 # DATA
 
-data_path = '/home/josh/_/beta/experiments/data'
+data_path = 'data'
 
 def onehot(i, size):
     out = torch.zeros(size)
@@ -119,21 +120,16 @@ def test(dataloader, model, loss_fn):
 ##################################################
 # BOMBS AWAY
 
-try:
-    already_loaded
-except:
-    model = Model().to(DEVICE)
-    loss_fn = nn.MSELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+model = Model().to(DEVICE)
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
 
-    epochs = 5
-    for t in range(epochs):
-        print(f'Epoch {t+1}\n------------------------------')
-        train(train_dl, model, loss_fn, optimizer)
-        test(test_dl, model, loss_fn)
-    print('Trained.')
-    already_loaded = True
-
+epochs = 5
+for t in range(epochs):
+    print(f'Epoch {t+1}\n------------------------------')
+    train(train_dl, model, loss_fn, optimizer)
+    test(test_dl, model, loss_fn)
+print('Trained.')
 
 
 # for i in range(10):
@@ -150,10 +146,6 @@ except:
 import numpy as np
 import cv2, math, random
 
-
-## Neural Network stuff here
-
-## Completed NN
 
 def image_to_array(img, size=28):
     # Convert image to array
@@ -172,7 +164,6 @@ def image_to_array(img, size=28):
     #cv2.imshow("Before NN", img)
 
     return ret
-
 
 #create a 512x512 black image
 nn_img = np.zeros((1024,256,3), np.uint8)
@@ -205,6 +196,9 @@ def draw_mouse(event, x, y, flags, param):
     if event == cv2.EVENT_RBUTTONDOWN or event == cv2.EVENT_LBUTTONDBLCLK:
         (w,h,d) = draw.shape
         cv2.rectangle(draw, (0,0), (w,h), (0,0,0), -1)
+
+        ary = torch.zeros(10)# [random.random() for i in range(10)]
+        drawCircles( nn_img, ary)
 
     if event == cv2.EVENT_MOUSEMOVE and flags == cv2.EVENT_FLAG_LBUTTON:
         cv2.circle(draw, (x, y), brush_size, (255, 255, 255), -1)

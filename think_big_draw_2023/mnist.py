@@ -32,7 +32,7 @@ DEVICE = 'cuda'
 ##################################################
 # DATA
 
-data_path = '/home/josh/_/beta/experiments/data'
+data_path = 'data'
 
 def onehot(i, size):
     out = torch.zeros(size)
