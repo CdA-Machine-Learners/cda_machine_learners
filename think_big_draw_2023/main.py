@@ -145,6 +145,13 @@ print('Trained.')
 
 import numpy as np
 import cv2, math, random
+from queue import Queue, Empty
+from threading import Thread
+
+#create a 512x512 black image
+nn_img = np.zeros((1024,256,3), np.uint8)
+draw = np.zeros((1024,1024,3), np.uint8)
+que = Queue()
 
 
 def image_to_array(img, size=28):
@@ -165,10 +172,6 @@ def image_to_array(img, size=28):
 
     return ret
 
-#create a 512x512 black image
-nn_img = np.zeros((1024,256,3), np.uint8)
-draw = np.zeros((1024,1024,3), np.uint8)
-
 def drawCircles(img, ary):
     #img = img.copy()
     ary = ary.tolist()
@@ -180,17 +183,49 @@ def drawCircles(img, ary):
     #draw a circle
     x = math.floor(img.shape[1] / 2)
     y = step / 2 + init / 2
-    for t in ary:
+    for i, t in enumerate(ary):
         color = (0, math.floor(t * 255), math.floor((1 - t) * 255))
+        center = (x, math.floor(y))
 
         #non filled circle
-        cv2.circle(img, (x, math.floor(y)), math.floor(step * 0.3), (255,0,0), 3)
+        cv2.circle(img, center, math.floor(step * 0.3), (255,0,0), 3)
         #filled circle
-        cv2.circle(img, (x, math.floor(y)), math.floor(step * 0.3), color, -1)
+        cv2.circle(img, center, math.floor(step * 0.3), color, -1)
+        cv2.putText(img, f"{i}", (math.floor(center[0] + step / 2), center[1]),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         y += step
 
     return img
+
+def threadWorker(queue):
+    while True:
+        queue.get()
+
+        vizualizeNN()
+
+        # Clear out the queue so we block correctly
+        try:
+            while queue.get(False):
+                pass
+        except Empty:
+            pass
+
+
+def vizualizeNN():
+    # Run the neural network
+    pix_ary = image_to_array(draw)
+
+    # Convert to tensor
+    tens = torch.tensor(pix_ary).to(DEVICE).unsqueeze(0) / 255
+
+    # What does this do?
+    # tens += torch.randn_like(tens) / 1000
+
+    # Get the result of the NN
+    ary = model(tens)[0]
+    drawCircles(nn_img, ary)
+
 
 def draw_mouse(event, x, y, flags, param):
     if event == cv2.EVENT_RBUTTONDOWN or event == cv2.EVENT_LBUTTONDBLCLK:
@@ -201,24 +236,21 @@ def draw_mouse(event, x, y, flags, param):
         drawCircles( nn_img, ary)
 
     if event == cv2.EVENT_MOUSEMOVE and flags == cv2.EVENT_FLAG_LBUTTON:
-        cv2.circle(draw, (x, y), brush_size, (255, 255, 255), -1)
+        cv2.circle(draw, (x, y), 25, (255, 255, 255), -1)
 
-        # Run the neural network
-        # print( image_to_array(draw) )
-        x = image_to_array(draw)
-        # print(x)
-        x = torch.tensor(x).to(DEVICE).unsqueeze(0) / 255
-        x += torch.randn_like(x) / 1000
-        # ary = [random.random() for i in range(10)]
-        ary = model(x)[0]
-        drawCircles( nn_img, ary)
+        # This will trigger a refresh
+        que.put(True, block=False)
+        # visulizeNN()
+
+
+# Setup the threads
+t1 = Thread(target=threadWorker, args=(que,))
+t1.start()
 
 # First draw
 model.eval()
 ary = torch.zeros(10)# [random.random() for i in range(10)]
 drawCircles( nn_img, ary)
-
-brush_size = 25
 
 cv2.namedWindow(winname="Draw a number")
 cv2.setMouseCallback("Draw a number", draw_mouse)
