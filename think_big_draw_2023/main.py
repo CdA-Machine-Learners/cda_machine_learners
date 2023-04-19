@@ -1,3 +1,5 @@
+#!/home/josh/_/cda_machine_learners/think_big_2023/.venv/bin/python
+
 '''.
 An MNIST Generator
 This was created in a live coding session for the CdA Machine Learners Group
@@ -157,24 +159,24 @@ def image_to_array(img, size=28):
     # Convert image to array
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.resize(img, (size, size))
-    img = cv2.GaussianBlur(img, (3, 3), 0)
+    img = cv2.GaussianBlur(img, (5, 5), 0)
     #img = cv2.bitwise_not(img)
     #img = img / 255.0
     #img = img.reshape(1, size, size, 1)
-
-    # cv2.imshow("Before NN", img)
 
     ret = []
     for i in range(size):
         for j in range(size):
             ret.append(math.ceil(img[i][j]))
 
+    #cv2.imshow("Before NN", img)
+
     return ret
 
 
 #create a 512x512 black image
 nn_img = np.zeros((1024,256,3), np.uint8)
-draw = np.zeros((512,512,3), np.uint8)
+draw = np.zeros((1024,1024,3), np.uint8)
 
 def drawCircles(img, ary):
     #img = img.copy()
@@ -210,6 +212,7 @@ def draw_mouse(event, x, y, flags, param):
         # Run the neural network
         # print( image_to_array(draw) )
         x = image_to_array(draw)
+        # print(x)
         x = torch.tensor(x).to(DEVICE).unsqueeze(0) / 255
         x += torch.randn_like(x) / 1000
         # ary = [random.random() for i in range(10)]

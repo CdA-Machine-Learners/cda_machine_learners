@@ -111,6 +111,26 @@ def chat_task(prompt: str):
     return str(completion.choices[0].message.content)
 
 
+# Split text into less than 2000 characters to avoid Discord's 2000 character limit
+def split_text(text, max_len=1990):
+    if len(text) <= max_len:
+        return [text]
+
+    parts = []
+    while len(text) > max_len:
+        split_index = max_len
+        while text[split_index] != ' ' and split_index > 0:
+            split_index -= 1
+
+        if split_index == 0:
+            raise ValueError("No whitespace found to split the text.")
+
+        parts.append(text[:split_index])
+        text = text[split_index:].strip()
+
+    parts.append(text)
+    return parts
+
 @add_async_command
 @discord.ext.commands.guild_only()
 async def chat(ctx, prompt: str):
@@ -137,4 +157,8 @@ async def chat(ctx, prompt: str):
 *Q:* {prompt}
 *A:* {result}
 '''
-    await ctx.send(out)
+    if len(out) > 1999:
+        for part in split_text(out):
+            ctx.send(part)
+    else:
+        await ctx.send(out)

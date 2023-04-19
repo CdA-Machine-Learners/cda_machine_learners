@@ -43,14 +43,13 @@ def image_task(prompt: str):
 async def image(ctx, prompt: str):
     await ctx.defer()
     try:
-        task = await await_task(image_task.delay(prompt))
+        base64_image = await await_task(image_task.delay(prompt))
     except TaskRevokedError:
         await ctx.send('Task timed out')
         return
     except TaskFailedError:
         await ctx.send('Task failed')
         return
-    base64_image = task.get()
     image = io.BytesIO(base64.b64decode(base64_image))
     file = discord.File(image, 'image.png')
     content = f'**Stable Diffusion Image**\n\nPrompt:\n> {prompt}'
