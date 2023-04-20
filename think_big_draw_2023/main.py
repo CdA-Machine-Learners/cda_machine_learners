@@ -17,7 +17,7 @@ import torchvision
 from torchvision.datasets import MNIST
 import matplotlib.pyplot as plt
 
-import torch, sys
+import torch, sys, time
 
 SEED = 0
 torch.random.manual_seed(SEED)
@@ -266,5 +266,7 @@ while True:
     cv2.imshow("AI Output", nn_img)
     if cv2.waitKey(10) & 0xFF == 27:
         break
+
+    time.sleep(0.1)
 
 cv2.destroyAllWindows()
