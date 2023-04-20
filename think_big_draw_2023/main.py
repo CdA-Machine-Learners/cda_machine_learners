@@ -62,22 +62,35 @@ except:
 ##################################################
 # ARCHITECTURE
 
+
+class Spy(nn.Module):
+    def __init__(self):
+        super(Spy, self).__init__()
+        self.tensor = None
+
+    def forward(self, x):
+        self.tensor = x
+        return x
+
+
 class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
         IMG_SIZE = 28
+        self.spy = Spy() # Captures middle layers
         self.w = nn.Sequential(
             nn.Linear(IMG_SIZE*IMG_SIZE, 128),
             # nn.Tanh(),
             # nn.Linear(128, 128),
             nn.ReLU(),
             nn.Dropout(0.2),
+            self.spy,
             nn.Linear(128, 10),
             nn.Softmax(dim=1),
         )
+
     def forward(self, x):
         return self.w(x)
-
 
 ##################################################
 # TRAINING
@@ -223,6 +236,9 @@ def vizualizeNN():
     # tens += torch.randn_like(tens) / 1000
     # Run the NN, and get the output
     ary = model(tens)[0]
+    print(model.spy.tensor[0].tolist())
+
+    # Draw the middle nodes, With a scale?
 
     #for layer in model.parameters():
     #    if len(layer.shape) == 1 and layer.shape[0] == 128:
