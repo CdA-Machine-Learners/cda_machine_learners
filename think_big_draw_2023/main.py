@@ -185,27 +185,30 @@ def image_to_array(img, size=28):
 
     return ret
 
-def drawCircles(img, ary):
+def drawCircles(img, ary, x_offset=0, show_labels=True):
     #img = img.copy()
-    ary = ary.tolist()
+    if not isinstance( ary, list ):
+        ary = ary.tolist()
     # Calc some dimensions
-    init = 30
+    init = 40
     height = img.shape[0]
     step = (height - init * 2) / len(ary)
 
     #draw a circle
-    x = math.floor(img.shape[1] / 2)
+    x = math.floor(img.shape[1] / 2) + x_offset
     y = step / 2 + init / 2
     for i, t in enumerate(ary):
         color = (0, math.floor(t * 255), math.floor((1 - t) * 255))
         center = (x, math.floor(y))
 
-        #non filled circle
-        cv2.circle(img, center, math.floor(step * 0.3), (255,0,0), 3)
         #filled circle
         cv2.circle(img, center, math.floor(step * 0.3), color, -1)
-        cv2.putText(img, f"{i}", (math.floor(center[0] + step / 2), center[1]),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        if show_labels:
+            # non filled circle
+            cv2.circle(img, center, math.floor(step * 0.3), (255,0,0), 3)
+            # DRaw text
+            cv2.putText(img, f"{i}", (math.floor(center[0] + step / 2), center[1]),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         y += step
 
@@ -236,9 +239,13 @@ def vizualizeNN():
     # tens += torch.randn_like(tens) / 1000
     # Run the NN, and get the output
     ary = model(tens)[0]
-    print(model.spy.tensor[0].tolist())
+    hidden = model.spy.tensor[0]
 
     # Draw the middle nodes, With a scale?
+    drawCircles(nn_img, hidden, -60, False)
+
+    # Draw the image
+    drawCircles(nn_img, pix_ary, -100, False)
 
     #for layer in model.parameters():
     #    if len(layer.shape) == 1 and layer.shape[0] == 128:
@@ -246,7 +253,7 @@ def vizualizeNN():
     #        print(layer)
 
     # Draw the NN
-    drawCircles(nn_img, ary)
+    drawCircles(nn_img, ary, 20)
 
 
 def draw_mouse(event, x, y, flags, param):
@@ -255,7 +262,7 @@ def draw_mouse(event, x, y, flags, param):
         cv2.rectangle(draw, (0,0), (w,h), (0,0,0), -1)
 
         ary = torch.zeros(10)# [random.random() for i in range(10)]
-        drawCircles( nn_img, ary)
+        drawCircles( nn_img, ary, 20)
 
     if event == cv2.EVENT_MOUSEMOVE and flags == cv2.EVENT_FLAG_LBUTTON:
         cv2.circle(draw, (x, y), 25, (255, 255, 255), -1)
@@ -272,7 +279,7 @@ t1.start()
 # First draw
 model.eval()
 ary = torch.zeros(10)# [random.random() for i in range(10)]
-drawCircles( nn_img, ary)
+drawCircles( nn_img, ary, 20)
 
 cv2.namedWindow(winname="Draw a number")
 cv2.setMouseCallback("Draw a number", draw_mouse)
