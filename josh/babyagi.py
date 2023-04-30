@@ -19,6 +19,14 @@ Usage:
   python babyagi.py "How can I make a successful AI Meetup?"
 
 
+TODO:
+
+  * add web search tool via SerpAPI
+
+  * add `requests` tool
+
+  * Help it terminate. Right now it runs and just keeps filling up its task queue
+
 '''
 
 from collections import deque
@@ -345,7 +353,7 @@ def execution_agent(objective:str, task: str) -> str:
 def context_agent(query: str, n: int):
     query_embedding = get_ada_embedding(query)
     results = index.query(query_embedding, top_k=n) # , include_metadata=True)
-    #print("***** RESULTS *****")
+    #print("***** CONTEXT RESULTS *****")
     #print(results)
     sorted_results = sorted(results, key=lambda x: x['score'], reverse=True)
     return [(str(item['metadata']['task'])) for item in sorted_results]
