@@ -1,0 +1,7 @@
+numpy
+discord
+soundfile
+
+accelerate
+transformers
+nltk
