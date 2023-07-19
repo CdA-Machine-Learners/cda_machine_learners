@@ -6,5 +6,8 @@ accelerate
 transformers
 nltk
 
-SentencePieces
 Pillow
+
+pypdf
+InstructorEmbedding
+sentence-transformers
