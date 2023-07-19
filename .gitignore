@@ -1,6 +1,8 @@
 # Secrets
 .discord_token
 .openai_token
+config.yml
+config.yaml
 
 # Python
 .env

@@ -1,0 +1,10 @@
+numpy
+discord
+soundfile
+
+accelerate
+transformers
+nltk
+
+SentencePieces
+Pillow
