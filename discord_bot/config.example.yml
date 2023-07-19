@@ -1,0 +1,13 @@
+modules:
+  - discord_bot.bots.example
+
+discord_token: "..."
+discord_bot_id: "..."
+openai_api_key: "sk-..."
+
+
+##########
+# Example Bot
+
+example:
+  greeting: "Hello and welcome {name}!"
