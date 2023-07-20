@@ -198,7 +198,7 @@ async def step_game(ctx, proc_reply, state, engine, max_length, author, prompt):
     if resp is None:
         resp = '<AI response invalid>'
         log.warn(f'INVALID RESPONSE: \n{x}')
-        ctx.send(resp)
+        await ctx.send(resp)
         return
 
     if new_game_state is not None and resp is not None:
@@ -232,7 +232,7 @@ def initialize(args, server):
     @server.hybrid_command(name="game", description="You're now in the game. What will you do?")
     async def game(ctx, prompt: str):
         author = ctx.author.name
-        proc_reply = await ctx.reply("**{author}**: {prompt.strip()}.  *Processing...*")
+        proc_reply = await ctx.reply(f"**{author}**: {prompt.strip()}.  *Processing...*")
         await step_game(ctx, proc_reply, state, engine, max_length, author, prompt)
 
     @server.hybrid_command(name="restart_game", description="WARNING: this resets the game for everyone.")
