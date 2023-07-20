@@ -22,14 +22,10 @@ def configure(config_yaml):
 
 def initialize(args, server):
     log.info('Initializing Example Bot')
-    # Config
-
-    # Command: hello
     @server.hybrid_command(name="hello", description="Say hi to user")
     async def hello(ctx, prompt: str):
         proc = await ctx.reply("Processing...")
         user_name = ctx.author.name
         welcome_message = args.greeting.format(name=user_name)
         await ctx.send(welcome_message)
-
     return server

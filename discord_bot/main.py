@@ -1,6 +1,5 @@
 from discord.ext import commands
 import discord
-from discord_bot import bot
 from discord_bot import config
 import importlib
 from discord_bot.common import mk_logger
@@ -33,6 +32,7 @@ def load_module(module_name, config_yaml, server):
 description = '''
 A panoply of cool AI Tools.
 '''.strip()
+
 
 def main():
     args, config_yaml, parser = config.get_args()
