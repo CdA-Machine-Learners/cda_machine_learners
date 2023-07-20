@@ -21,6 +21,10 @@ from asyncio import Queue
 import asyncio
 import threading
 import concurrent.futures
+from queue import Empty
+import multiprocessing
+import torch
+# torch.multiprocessing.set_sharing_strategy('file_system')
 
 log = mk_logger('document_chat', logging.DEBUG)
 
@@ -288,38 +292,75 @@ class Job:
     doc_name: str
 
 
+def go(process_ix, model, iq, response_ix, cache, query, doc_name, top_n):
+    log.debug(f'processing for {doc_name}: {query}')
+    ranked_segments, sims = top_segments(model, cache, query, doc_name, top_n)
+    out_msg = f"**Query on {doc_name}:** {query}\n\n"
+    for i, seg in enumerate(ranked_segments):
+        # discord has length limit of 2000
+        out_msg += f'**Relevant Passage #{i+1}:**\n'
+        out_msg += seg[:500] + '... <CONTINUES>'
+        out_msg += '\n\n'
+    iq.put((response_ix, out_msg[:2000]))
+
 async def process_queue(queue):
     ''' Single-thread calls to the `model` '''
     log.info('Starting process queue')
     model = INSTRUCTOR('hkunlp/instructor-base')
     cache = make_cache(model)
 
+    # We'll need to keep discord contexts in a dictionary for reference later,
+    # and will use an auto-incing id. This is so the multipocessing result can
+    # eventually be paired up with the initial calling ctx.
+    ctxs = {}
+    ctx_ix = 0
+
+    # internal queue, used for getting results out of torch.multiprocessing
+    # process.
+    # iq = torch.multiprocessing.Queue()
+    # iq = multiprocessing.Queue()
+    manager = multiprocessing.Manager()
+    iq = manager.Queue()
     while True:
+        ##########
+        # Check if there are responses that must be made to discord client
         try:
-            if (job := await queue.get()) is None:
+            while not iq.empty():
+                res = iq.get(block=False)
+                i, out_msg = res
+                ctx = ctxs[i]
+                await ctx.send(out_msg)
+                del ctxs[i]
+        except Empty:
+            pass
+
+        ##########
+        # Process requests
+        try:
+            try:
+                job = await asyncio.wait_for(queue.get(), 0.1)
+            except asyncio.TimeoutError:
                 continue
 
+            await job.ctx.reply(f"Waiting in line [#{iq.qsize()}]. Request: {job.query}")
+
             log.info(f'Got job: {job.query}')
-            future = asyncio.to_thread(
-                top_segments,
-                model,
-                cache,
-                job.query,
-                job.doc_name,
-                3)
+            ctx_ix += 1
+            ctxs[ctx_ix] = job.ctx
 
-            ranked_segments, sims = await future
-
-            out_msg = f"**Query on {job.doc_name}:** {job.query}\n\n"
-            for i, seg in enumerate(ranked_segments):
-                # discord has length limit of 2000
-                out_msg += f'**Relevant Passage #{i+1}:**\n'
-                out_msg += seg[:500] + '... <CONTINUES>'
-                out_msg += '\n\n'
-            await job.ctx.send(out_msg[:2000])
+            torch.multiprocessing.spawn(
+                go,
+                args=(model,
+                      iq,
+                      ctx_ix,
+                      cache,
+                      job.query,
+                      job.doc_name,
+                      3),
+                join=False)
+            queue.task_done()
         except Exception as e:
             log.error(e)
-        queue.task_done()
 
 
 # TODO: Ideally, we'd init `process_queue` in `on_ready`, but, this is quicker
@@ -337,9 +378,7 @@ def configure(config_yaml):
 
 def initialize(args, server):
     log.info('Initializing Document Chat Bot')
-
     q = Queue()
-
     def start_process():
         # Initialize `process_queue` if needed.
         if not is_started.is_set():
@@ -350,15 +389,25 @@ def initialize(args, server):
     @server.hybrid_command(name="ask_bitcoin",
                            description="Look for relevant passages from the original Bitcoin whitepaper.")
     async def ask_bitcoin(ctx, query: str):
-        await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
         start_process()
         await q.put(Job(ctx, query, 'bitcoin'))
 
     @server.hybrid_command(name="ask_idaho",
                            description="Search the Idaho Land Use Code, a 400 page doc.")
     async def ask_idaho(ctx, query: str):
-        await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
         start_process()
         await q.put(Job(ctx, query, 'idaho'))
 
     return server
+
+'''
+
+Lukes magic:
+
+with concurrent.futures.ThreadPoolExecutor() as pool:
+            image = await asyncio.get_running_loop().run_in_executor(
+                    pool,
+                    run_sdxl, # working function that runs threaded
+                    base_pipe, refiner_pipe, msg.prompt ) # args to pass to the function
+run_sdxl is a function with the sd_xl calls
+'''
