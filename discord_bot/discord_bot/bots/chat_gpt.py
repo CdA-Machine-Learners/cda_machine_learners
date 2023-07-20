@@ -56,6 +56,7 @@ def openai_autocomplete(engine, text, max_length):
 
 
 async def openai_stream_fn(proc, prompt, engine, max_length):
+    BATCH = 20
     try:
         # Stream the results to LSP Client
         running_text = f'**Chat prompt:** {prompt}\n\n'
@@ -65,9 +66,12 @@ async def openai_stream_fn(proc, prompt, engine, max_length):
             if len(new_text) == 0:
                 continue
             running_text += new_text
-            if i % 20 == 0:
-                asyncio.sleep(0.5)  # slow it down so discord doesn't flooood
+            if i % BATCH == 0:
+                await asyncio.sleep(1.0)  # slow it down so discord doesn't flooood
                 await proc.edit(content=running_text)
+        if i >= max_length - 1:
+            running_text += '... truncated'
+        await proc.edit(content=running_text)
     except Exception as e:
         log.error(f'Error: OpenAI, {e}')
 
