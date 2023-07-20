@@ -304,7 +304,7 @@ async def process_queue(queue):
                                                  job.query,
                                                  job.doc_name,
                                                  top_n=3)
-            out_msg = ""
+            out_msg = f"**Query:** {job.query}\n\n"
             for i, seg in enumerate(ranked_segments):
                 # discord has length limit of 2000
                 out_msg += f'**Relevant Passage #{i+1}:**\n'
