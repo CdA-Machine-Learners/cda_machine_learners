@@ -288,7 +288,7 @@ class Job:
     doc_name: str
 
 
-async def process_queue(queue, loop, executor):
+async def process_queue(queue):
     ''' Single-thread calls to the `model` '''
     log.info('Starting process queue')
     model = INSTRUCTOR('hkunlp/instructor-base')
@@ -300,12 +300,13 @@ async def process_queue(queue, loop, executor):
                 continue
 
             log.info(f'Got job: {job.query}')
-            future = loop.run_in_executor(executor, top_segments,
-                                          (model,
-                                          cache,
-                                          job.query,
-                                          job.doc_name,
-                                          3))
+            future = asyncio.to_thread(
+                top_segments,
+                model,
+                cache,
+                job.query,
+                job.doc_name,
+                3)
 
             ranked_segments, sims = await future
 
@@ -338,28 +339,28 @@ def initialize(args, server):
     log.info('Initializing Document Chat Bot')
 
     q = Queue()
-    loop = asyncio.get_event_loop()
-    executor = concurrent.futures.ThreadPoolExecutor()
+    # loop = asyncio.get_event_loop()
+    # executor = concurrent.futures.ThreadPoolExecutor()
 
-    def start_process(loop, executor):
+    def start_process():
         # Initialize `process_queue` if needed.
         if not is_started.is_set():
             log.info('Starting job queue for document_chat')
-            asyncio.create_task(process_queue(q, loop, executor))
+            asyncio.create_task(process_queue(q))
             is_started.set()
 
     @server.hybrid_command(name="ask_bitcoin",
                            description="Look for relevant passages from the original Bitcoin whitepaper.")
     async def ask_bitcoin(ctx, query: str):
         await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-        start_process(loop, executor)
+        start_process()
         await q.put(Job(ctx, query, 'bitcoin'))
 
     @server.hybrid_command(name="ask_idaho",
                            description="Search the Idaho Land Use Code, a 400 page doc.")
     async def ask_idaho(ctx, query: str):
         await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-        start_process(loop, executor)
+        start_process()
         await q.put(Job(ctx, query, 'idaho'))
 
     return server
