@@ -20,6 +20,11 @@ import pickle
 from asyncio import Queue
 import asyncio
 import threading
+import concurrent.futures
+from queue import Empty
+import multiprocessing
+import torch
+# torch.multiprocessing.set_sharing_strategy('file_system')
 
 log = mk_logger('document_chat', logging.DEBUG)
 
@@ -251,7 +256,7 @@ def make_cache(model):
             name='bitcoin',
             path='./discord_bot/bots/document_chat/bitcoin.pdf',
             window_size=300,
-            stride=100,
+            stride=57,
             text=None,
             embeddings=None,
             query_instruction='Represent the Science question for retrieving supporting documents: ',
@@ -260,16 +265,29 @@ def make_cache(model):
             denoise_poly_order=2,
             percentile=80,
         ),
-        'idaho': Meta(
-            name='idaho',
-            path='./discord_bot/bots/document_chat/land use and development code.pdf',
+        # 'idaho': Meta(
+        #     name='idaho',
+        #     path='./discord_bot/bots/document_chat/land use and development code.pdf',
+        #     window_size=300,
+        #     stride=100,
+        #     text=None,
+        #     embeddings=None,
+        #     query_instruction='Represent the wikipedia question for retrieving supporting documents: ',
+        #     embed_instruction='Represent the wikipedia document for retrieval: ',
+        #     denoise_window_size=5000,
+        #     denoise_poly_order=2,
+        #     percentile=80,
+        # ),
+        'alice': Meta(
+            name='alice',
+            path='./discord_bot/bots/document_chat/alice.txt',
             window_size=300,
-            stride=100,
+            stride=57,
             text=None,
             embeddings=None,
-            query_instruction='Represent the wikipedia question for retrieving supporting documents: ',
-            embed_instruction='Represent the wikipedia document for retrieval: ',
-            denoise_window_size=5000,
+            query_instruction='Represent the novel question for retrieving supporting documents: ',
+            embed_instruction='Represent the novel document for retrieval: ',
+            denoise_window_size=2000,
             denoise_poly_order=2,
             percentile=80,
         ),
@@ -283,8 +301,21 @@ def make_cache(model):
 @dataclass
 class Job:
     ctx: Any
+    proc_reply: Any
     query: str
     doc_name: str
+
+
+def go(process_ix, model, iq, response_ix, cache, query, doc_name, top_n):
+    log.debug(f'processing for {doc_name}: {query}')
+    ranked_segments, sims = top_segments(model, cache, query, doc_name, top_n)
+    out_msg = f"**Query on {doc_name}:** {query}\n\n"
+    for i, seg in enumerate(ranked_segments):
+        # discord has length limit of 2000
+        out_msg += f'**Relevant Passage #{i+1}:**\n'
+        out_msg += seg[:900] + '... <CONTINUES>'
+        out_msg += '\n\n'
+    iq.put((response_ix, out_msg[:2000]))
 
 
 async def process_queue(queue):
@@ -293,27 +324,59 @@ async def process_queue(queue):
     model = INSTRUCTOR('hkunlp/instructor-base')
     cache = make_cache(model)
 
+    # We'll need to keep discord contexts in a dictionary for reference later,
+    # and will use an auto-incing id. This is so the multipocessing result can
+    # eventually be paired up with the initial calling ctx.
+    proc_replys = {}
+    proc_reply_ix = 0
+
+    # internal queue, used for getting results out of torch.multiprocessing
+    # process.
+    # iq = torch.multiprocessing.Queue()
+    # iq = multiprocessing.Queue()
+    manager = multiprocessing.Manager()
+    iq = manager.Queue()
     while True:
+        ##########
+        # Check if there are responses that must be made to discord client
         try:
-            if (job := await queue.get()) is None:
+            while not iq.empty():
+                res = iq.get(block=False)
+                i, out_msg = res
+                proc_reply = proc_replys[i]
+                await proc_reply.edit(content=out_msg)
+                del proc_replys[i]
+        except Empty:
+            pass
+
+        ##########
+        # Process requests
+        try:
+            try:
+                job = await asyncio.wait_for(queue.get(), 0.1)
+            except asyncio.TimeoutError:
                 continue
 
+            await job.proc_reply.edit(content=f"Waiting in line. Request: {job.query}")
+
             log.info(f'Got job: {job.query}')
-            ranked_segments, sims = top_segments(model,
-                                                 cache,
-                                                 job.query,
-                                                 job.doc_name,
-                                                 top_n=3)
-            out_msg = f"**Query:** {job.query}\n\n"
-            for i, seg in enumerate(ranked_segments):
-                # discord has length limit of 2000
-                out_msg += f'**Relevant Passage #{i+1}:**\n'
-                out_msg += seg[:500] + '... <CONTINUES>'
-                out_msg += '\n\n'
-            await job.ctx.send(out_msg[:2000])
+            proc_reply_ix += 1
+            proc_replys[proc_reply_ix] = job.proc_reply
+
+            torch.multiprocessing.spawn(
+                go,
+                args=(model,
+                      iq,
+                      proc_reply_ix,
+                      cache,
+                      job.query,
+                      job.doc_name,
+                      2),
+                join=False  # don't block
+            )
+            queue.task_done()
         except Exception as e:
             log.error(e)
-        queue.task_done()
 
 
 # TODO: Ideally, we'd init `process_queue` in `on_ready`, but, this is quicker
@@ -331,33 +394,33 @@ def configure(config_yaml):
 
 def initialize(args, server):
     log.info('Initializing Document Chat Bot')
-
     q = Queue()
+    def start_process():
+        # Initialize `process_queue` if needed.
+        if not is_started.is_set():
+            log.info('Starting job queue for document_chat')
+            asyncio.create_task(process_queue(q))
+            is_started.set()
 
     @server.hybrid_command(name="ask_bitcoin",
                            description="Look for relevant passages from the original Bitcoin whitepaper.")
     async def ask_bitcoin(ctx, query: str):
-        await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
+        proc_reply = await ctx.reply("Processing...")
+        await q.put(Job(ctx, proc_reply, query, 'bitcoin'))
+        start_process()
 
-        # Initialize `process_queue` if needed.
-        if not is_started.is_set():
-            log.info('Starting job queue for document_chat')
-            asyncio.create_task(process_queue(q))
-            is_started.set()
+    # @server.hybrid_command(name="ask_idaho",
+    #                        description="Search the Idaho Land Use Code, a 400 page doc.")
+    # async def ask_idaho(ctx, query: str):
+    #     proc_reply = await ctx.reply("Processing...")
+    #     await q.put(Job(ctx, proc_reply, query, 'idaho'))
+    #     start_process()
 
-        await q.put(Job(ctx, query, 'bitcoin'))
-
-    @server.hybrid_command(name="ask_idaho",
-                           description="Search the Idaho Land Use Code, a 400 page doc.")
-    async def ask_idaho(ctx, query: str):
-        await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-
-        # Initialize `process_queue` if needed.
-        if not is_started.is_set():
-            log.info('Starting job queue for document_chat')
-            asyncio.create_task(process_queue(q))
-            is_started.set()
-
-        await q.put(Job(ctx, query, 'idaho'))
+    @server.hybrid_command(name="ask_alice",
+                           description="Ask questions about Alice in Wonderland, find relevant passages.",)
+    async def ask_alice(ctx, query: str):
+        proc_reply = await ctx.reply("Processing...")
+        await q.put(Job(ctx, proc_reply, query, 'alice'))
+        start_process()
 
     return server
