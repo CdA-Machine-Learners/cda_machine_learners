@@ -1,0 +1,5 @@
+numpy
+discord
+
+accelerate
+transformers
