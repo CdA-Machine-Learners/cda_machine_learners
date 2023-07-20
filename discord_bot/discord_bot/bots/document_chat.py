@@ -339,8 +339,6 @@ def initialize(args, server):
     log.info('Initializing Document Chat Bot')
 
     q = Queue()
-    # loop = asyncio.get_event_loop()
-    # executor = concurrent.futures.ThreadPoolExecutor()
 
     def start_process():
         # Initialize `process_queue` if needed.
