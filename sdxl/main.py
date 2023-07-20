@@ -43,7 +43,8 @@ async def process_request( bot: commands.Bot, queue: asyncio.Queue ):
     # pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
     refiner_pipe.to("cuda")
 
-    print("Starting processor")
+    print("Bot is online and waiting for requests...")
+    print("")
     while True:
         # Pull valid messages
         if (msg := await queue.get()) is None:
@@ -62,7 +63,7 @@ async def process_request( bot: commands.Bot, queue: asyncio.Queue ):
         content = f'**SD XL**\n\nPrompt:\n> {msg.prompt}'
         await cda_discord.send_image_to_channel(msg.ctx, image, content )
 
-    # Do something with the image
+    # Tell the asyncio.create_task -> join that we are done with the task
     queue.task_done()
 
 
