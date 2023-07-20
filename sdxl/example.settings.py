@@ -17,3 +17,7 @@ DISCORD_BOT_ID      = 2222222
 # Go to https://huggingface.co/settings/tokens, create a token, and paste it here
 # Also, goto https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9 and make sure to signup for the model
 HUGGING_FACE_TOKEN = "hf_XXX"
+
+# Define how to run stable. FP16 takes WAY less memory, but looks worse
+FP16 = True
+REFINER = True

@@ -16,7 +16,8 @@ def run_sdxl( base_pipe, refiner_pipe, prompt ):
     neg = "(worst quality, bad quality:1.2)(easynegative), (worst quality:2), (low quality:2), (normal quality:2),watermark, signature, lowres, ((monochrome)), ((grayscale)), cropped, signature, watermark, framed, border, grain, dust, film grain"
 
     # Run this to skip the refiner loop
-    # return base_pipe(prompt=prompt, negative_prompt=neg ).images[0]
+    if refiner_pipe is None:
+        return base_pipe(prompt=prompt, negative_prompt=neg ).images[0]
 
     # First XL pass
     latent_image = base_pipe(prompt=prompt, negative_prompt=neg, output_type="latent" ).images
@@ -25,23 +26,32 @@ def run_sdxl( base_pipe, refiner_pipe, prompt ):
 
 
 async def process_request( bot: commands.Bot, queue: asyncio.Queue ):
+    opts = {}
+    if settings.FP16:
+        opts = {"torch_dtype": torch.float16, "variant": "fp16"}
+
     print("Building base pipe")
     base_pipe = DiffusionPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-0.9", torch_dtype=torch.float16,
-        use_safetensors=True, variant="fp16",
+        "stabilityai/stable-diffusion-xl-base-0.9",
+        use_safetensors=True,
         use_auth_token=settings.HUGGING_FACE_TOKEN,
+        **opts
     )
     # pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
     base_pipe.to("cuda")
 
-    print("Building refiner pipe")
-    refiner_pipe = DiffusionPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-refiner-0.9",
-        torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
-        use_auth_token=settings.HUGGING_FACE_TOKEN,
-    )
-    # pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
-    refiner_pipe.to("cuda")
+    if settings.REFINER:
+        print("Building refiner pipe")
+        refiner_pipe = DiffusionPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-xl-refiner-0.9",
+            use_safetensors=True,
+            use_auth_token=settings.HUGGING_FACE_TOKEN,
+            **opts
+        )
+        # pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
+        refiner_pipe.to("cuda")
+    else:
+        refiner_pipe = None
 
     print("Bot is online and waiting for requests...")
     print("")
@@ -80,7 +90,7 @@ def main():
     # Define my commands
     @bot.hybrid_command(name="sdxl", description="Run SD XL.")
     async def sdxl(ctx, *, prompt: str):
-        proc = await ctx.reply("Processing...")
+        proc = await ctx.reply(f"Processing...\n\nPrompt:\n> {prompt}")
         await queue.put(QueueMsg(ctx, proc, prompt))
 
     # This runs the bot and blocks until the bot process is closed
