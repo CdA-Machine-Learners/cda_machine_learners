@@ -1,9 +1,11 @@
 modules:
   - discord_bot.bots.example
+  - discord_bot.bots.document_chat
+  - discord_bot.bots.chat_gpt
+  - discord_bot.bots.game
 
 discord_token: "..."
 discord_bot_id: "..."
-openai_api_key: "sk-..."
 
 
 ##########
@@ -11,3 +13,27 @@ openai_api_key: "sk-..."
 
 example:
   greeting: "Hello and welcome {name}!"
+
+
+##########
+# Document Chat
+
+document_chat: # no config
+
+
+##########
+# ChatGPT
+
+chat_gpt:
+  engine: "gpt-3.5-turbo"
+  max_length: 200
+  api_key: "sk-..."
+
+
+##########
+# D&D Game
+
+game:
+  engine: "gpt-3.5-turbo"
+  max_length: 200
+  api_key: "sk-..."
