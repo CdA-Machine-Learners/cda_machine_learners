@@ -300,11 +300,15 @@ async def process_queue(queue, loop, executor):
                 continue
 
             log.info(f'Got job: {job.query}')
-            ranked_segments, sims = top_segments(model,
-                                                 cache,
-                                                 job.query,
-                                                 job.doc_name,
-                                                 top_n=3)
+            future = loop.run_in_executor(executor, top_segments,
+                                          (model,
+                                          cache,
+                                          job.query,
+                                          job.doc_name,
+                                          3))
+
+            ranked_segments, sims = await future
+
             out_msg = f"**Query on {job.doc_name}:** {job.query}\n\n"
             for i, seg in enumerate(ranked_segments):
                 # discord has length limit of 2000
