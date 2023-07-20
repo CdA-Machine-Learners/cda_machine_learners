@@ -20,6 +20,7 @@ import pickle
 from asyncio import Queue
 import asyncio
 import threading
+import concurrent.futures
 
 log = mk_logger('document_chat', logging.DEBUG)
 
@@ -304,7 +305,7 @@ async def process_queue(queue):
                                                  job.query,
                                                  job.doc_name,
                                                  top_n=3)
-            out_msg = f"**Query:** {job.query}\n\n"
+            out_msg = f"**Query on {job.doc_name}:** {job.query}\n\n"
             for i, seg in enumerate(ranked_segments):
                 # discord has length limit of 2000
                 out_msg += f'**Relevant Passage #{i+1}:**\n'
@@ -333,31 +334,28 @@ def initialize(args, server):
     log.info('Initializing Document Chat Bot')
 
     q = Queue()
+    loop = asyncio.get_event_loop()
+    executor = concurrent.futures.ThreadPoolExecutor()
 
-    @server.hybrid_command(name="ask_bitcoin",
-                           description="Look for relevant passages from the original Bitcoin whitepaper.")
-    async def ask_bitcoin(ctx, query: str):
-        await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-
+    def start_process(loop, executor):
         # Initialize `process_queue` if needed.
         if not is_started.is_set():
             log.info('Starting job queue for document_chat')
             asyncio.create_task(process_queue(q))
             is_started.set()
 
+    @server.hybrid_command(name="ask_bitcoin",
+                           description="Look for relevant passages from the original Bitcoin whitepaper.")
+    async def ask_bitcoin(ctx, query: str):
+        await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
+        start_process(loop, executor)
         await q.put(Job(ctx, query, 'bitcoin'))
 
     @server.hybrid_command(name="ask_idaho",
                            description="Search the Idaho Land Use Code, a 400 page doc.")
     async def ask_idaho(ctx, query: str):
         await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-
-        # Initialize `process_queue` if needed.
-        if not is_started.is_set():
-            log.info('Starting job queue for document_chat')
-            asyncio.create_task(process_queue(q))
-            is_started.set()
-
+        start_process(loop, executor)
         await q.put(Job(ctx, query, 'idaho'))
 
     return server
