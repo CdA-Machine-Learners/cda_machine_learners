@@ -288,7 +288,7 @@ class Job:
     doc_name: str
 
 
-async def process_queue(queue):
+async def process_queue(queue, loop, executor):
     ''' Single-thread calls to the `model` '''
     log.info('Starting process queue')
     model = INSTRUCTOR('hkunlp/instructor-base')
@@ -341,7 +341,7 @@ def initialize(args, server):
         # Initialize `process_queue` if needed.
         if not is_started.is_set():
             log.info('Starting job queue for document_chat')
-            asyncio.create_task(process_queue(q))
+            asyncio.create_task(process_queue(q, loop, executor))
             is_started.set()
 
     @server.hybrid_command(name="ask_bitcoin",
