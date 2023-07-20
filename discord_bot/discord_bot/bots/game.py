@@ -4,14 +4,14 @@ A demonstration of a GPT-maintained state-loop in the form of D&D.
 
 '''
 
-from dataclass import dataclass
+from dataclasses import dataclass
 from discord_bot.common import get_nested, mk_logger
 import argparse
 import logging
 import openai
 import asyncio
 import re
-
+import random
 
 log = mk_logger('game', logging.DEBUG)
 
@@ -111,13 +111,10 @@ UPDATES_NEEDED = 'UPDATES_NEEDED'
 def initial_state():
     ''' hide it here so it doesn't accidentally mutate. '''
     prefix = 'You will be a Dungeon Master, and you will keep notes via a natural language-based state machine. Keep notes on: items, players, quests, etc.'
-    suffix = 'Remember, keep responses brief, invent interesting quests and obstacles, and make sure the state is always accurate and complete.'
+    suffix = 'Remember, keep responses brief, invent interesting quests and obstacles, and make sure the state is always accurate and complete, written in proper yaml.'
     game_state =  '''
 players:
-  josh:
-    items:
-    location:
-  kirtley:
+  greybeard42:
     items:
     location:
 
@@ -187,8 +184,9 @@ class State:
 state = initial_state()
 
 
-def step(ctx, proc_reply, state, engine, max_length, author, prompt):
-    x = get_response(prompt, state, engine, max_length)
+async def step_game(ctx, proc_reply, state, engine, max_length, author, prompt):
+    prompt_author = f'{author}: {prompt}'
+    x = get_response(prompt_author, state, engine, max_length)
 
     # Try extracting new_state
     new_game_state = get_block(NEW_STATE, x)
@@ -206,8 +204,10 @@ def step(ctx, proc_reply, state, engine, max_length, author, prompt):
     if new_game_state is not None and resp is not None:
         state.game_state = new_game_state
         state.running_resp = f'{state.running_resp.strip()}\n\n{resp.strip()}'
-        log.debug(f'STATE: {state}')
-        proc_reply.edit(content=resp)
+        log.debug(f'STATE: {state.game_state}')
+        log.debug(f'STATE: {state.running_resp}')
+        author_resp = f'**{author}**: {prompt.strip()}\n**response**: {resp.strip()}'
+        await proc_reply.edit(content=author_resp)
 
 
 def configure(config_yaml):
@@ -231,8 +231,25 @@ def initialize(args, server):
 
     @server.hybrid_command(name="game", description="You're now in the game. What will you do?")
     async def game(ctx, prompt: str):
-        proc = await ctx.reply("Processing...")
         author = ctx.author.name
-        await openai_stream_fn(proc, author, prompt, engine, max_length)
+        proc_reply = await ctx.reply("**{author}**: {prompt.strip()}.  *Processing...*")
+        await step_game(ctx, proc_reply, state, engine, max_length, author, prompt)
+
+    @server.hybrid_command(name="restart_game", description="WARNING: this resets the game for everyone.")
+    async def restart_game(ctx, password):
+        if password.lower().strip() == '4321pass':
+            state = initial_state()
+            await ctx.reply("State has been reset.")
+        else:
+            author = ctx.author.name
+            heckles = [
+                f'{author} is naughty and tried to reset the game.',
+                f'{author}, how dare you try and reset the game.',
+                f'{author} is a 1337 haxor.',
+                f'WARNING a wild {author} is on the loose, resting games and such!',
+                f'Oh hi {author}. I see youd like to reset the game.',
+                f'What did the cake say to the {author}? **Donut** reset the game!',
+            ]
+            await ctx.reply(random.choice(heckles))
 
     return server
