@@ -6,6 +6,7 @@ Document Chat
 
 from InstructorEmbedding import INSTRUCTOR
 from dataclasses import dataclass
+from discord.ext import tasks
 from discord_bot.common import get_nested, mk_logger
 from pypdf import PdfReader
 from scipy.signal import savgol_filter
@@ -19,8 +20,8 @@ import os
 import pickle
 from asyncio import Queue
 import asyncio
-import threading
-import concurrent.futures
+#import threading
+#import concurrent.futures
 
 log = mk_logger('document_chat', logging.DEBUG)
 
@@ -288,7 +289,9 @@ class Job:
     doc_name: str
 
 
-async def process_queue(queue, loop, executor):
+# unsure of what interval
+@tasks.loop(seconds=1)
+async def process_queue(queue):
     ''' Single-thread calls to the `model` '''
     log.info('Starting process queue')
     model = INSTRUCTOR('hkunlp/instructor-base')
@@ -316,12 +319,6 @@ async def process_queue(queue, loop, executor):
             log.error(e)
         queue.task_done()
 
-
-# TODO: Ideally, we'd init `process_queue` in `on_ready`, but, this is quicker
-#       and I'm out of time.
-is_started = threading.Event()
-
-
 def configure(config_yaml):
     parser = argparse.ArgumentParser()
     # bc this is only concerned with this module's params, do not error if
@@ -329,11 +326,22 @@ def configure(config_yaml):
     args, _ = parser.parse_known_args()
     return args
 
+# TODO: Ideally, we'd init `process_queue` in `on_ready`, but, this is quicker
+#       and I'm out of time.
+#is_started = threading.Event()
+
+# server.loop needs to be called in an async function; probably better way to do
+async def start_process(server, queue):
+    server.loop.create_task(process_queue(queue))
 
 def initialize(args, server):
     log.info('Initializing Document Chat Bot')
 
     q = Queue()
+    start_process(server, q)
+
+    # no longer need these; hopefully
+    '''
     loop = asyncio.get_event_loop()
     executor = concurrent.futures.ThreadPoolExecutor()
 
@@ -343,19 +351,20 @@ def initialize(args, server):
             log.info('Starting job queue for document_chat')
             asyncio.create_task(process_queue(q, loop, executor))
             is_started.set()
+    '''
 
     @server.hybrid_command(name="ask_bitcoin",
                            description="Look for relevant passages from the original Bitcoin whitepaper.")
     async def ask_bitcoin(ctx, query: str):
         await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-        start_process(loop, executor)
+        #start_process(loop, executor)
         await q.put(Job(ctx, query, 'bitcoin'))
 
     @server.hybrid_command(name="ask_idaho",
                            description="Search the Idaho Land Use Code, a 400 page doc.")
     async def ask_idaho(ctx, query: str):
         await ctx.reply(f"Waiting in line [#{q.qsize()}]. Request: {query}")
-        start_process(loop, executor)
+        #start_process(loop, executor)
         await q.put(Job(ctx, query, 'idaho'))
 
     return server
