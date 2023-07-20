@@ -24,7 +24,6 @@ import concurrent.futures
 from queue import Empty
 import multiprocessing
 import torch
-# torch.multiprocessing.set_sharing_strategy('file_system')
 
 log = mk_logger('document_chat', logging.DEBUG)
 
@@ -306,7 +305,7 @@ class Job:
     doc_name: str
 
 
-def go(process_ix, model, iq, response_ix, cache, query, doc_name, top_n):
+def go(model, cache, query, doc_name, top_n):
     log.debug(f'processing for {doc_name}: {query}')
     ranked_segments, sims = top_segments(model, cache, query, doc_name, top_n)
     out_msg = f"**Query on {doc_name}:** {query}\n\n"
@@ -315,8 +314,7 @@ def go(process_ix, model, iq, response_ix, cache, query, doc_name, top_n):
         out_msg += f'**Relevant Passage #{i+1}:**\n'
         out_msg += seg[:900] + '... <CONTINUES>'
         out_msg += '\n\n'
-    iq.put((response_ix, out_msg[:2000]))
-
+    return out_msg
 
 async def process_queue(queue):
     ''' Single-thread calls to the `model` '''
@@ -324,30 +322,7 @@ async def process_queue(queue):
     model = INSTRUCTOR('hkunlp/instructor-base')
     cache = make_cache(model)
 
-    # We'll need to keep discord contexts in a dictionary for reference later,
-    # and will use an auto-incing id. This is so the multipocessing result can
-    # eventually be paired up with the initial calling ctx.
-    proc_replys = {}
-    proc_reply_ix = 0
-
-    # internal queue, used for getting results out of torch.multiprocessing
-    # process.
-    # iq = torch.multiprocessing.Queue()
-    # iq = multiprocessing.Queue()
-    manager = multiprocessing.Manager()
-    iq = manager.Queue()
     while True:
-        ##########
-        # Check if there are responses that must be made to discord client
-        try:
-            while not iq.empty():
-                res = iq.get(block=False)
-                i, out_msg = res
-                proc_reply = proc_replys[i]
-                await proc_reply.edit(content=out_msg)
-                del proc_replys[i]
-        except Empty:
-            pass
 
         ##########
         # Process requests
@@ -358,22 +333,19 @@ async def process_queue(queue):
                 continue
 
             await job.proc_reply.edit(content=f"Waiting in line. Request: {job.query}")
-
             log.info(f'Got job: {job.query}')
-            proc_reply_ix += 1
-            proc_replys[proc_reply_ix] = job.proc_reply
 
-            torch.multiprocessing.spawn(
-                go,
-                args=(model,
-                      iq,
-                      proc_reply_ix,
-                      cache,
-                      job.query,
-                      job.doc_name,
-                      2),
-                join=False  # don't block
-            )
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                out_msg = await asyncio.get_running_loop().run_in_executor(
+                    pool,
+                    go,
+                    model,
+                    cache,
+                    job.query,
+                    job.doc_name,
+                    2)
+                await job.proc_reply.edit(content=out_msg)
+
             queue.task_done()
         except Exception as e:
             log.error(e)
