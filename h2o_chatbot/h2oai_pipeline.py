@@ -31,6 +31,7 @@ class H2OTextGenerationPipeline(TextGenerationPipeline):
             return_type=return_type,
             clean_up_tokenization_spaces=clean_up_tokenization_spaces,
         )
+        print(records)
         for rec in records:
             rec["generated_text"] = (
                 rec["generated_text"]

@@ -1,0 +1,7 @@
+webuiapi
+numpy
+#cv2
+qrcode
+discord
+boto3
+opencv-python

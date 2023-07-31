@@ -1,4 +1,4 @@
-import torch
+import torch, sys, datetime
 from h2oai_pipeline import H2OTextGenerationPipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -16,8 +16,12 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 generate_text = H2OTextGenerationPipeline(model=model, tokenizer=tokenizer)
 
+with open(sys.argv[1], "r") as handle:
+    passage = handle.read()
+
+now = datetime.datetime.now()
 res = generate_text(
-    "Why is drinking water so healthy?",
+        f"Summerize the room described in this paragraph:\n{passage}",
     min_new_tokens=2,
     max_new_tokens=1024,
     do_sample=False,
@@ -26,5 +30,24 @@ res = generate_text(
     repetition_penalty=float(1.2),
     renormalize_logits=True
 )
+print("")
+dt = datetime.datetime.now() - now
+print(f"Result: {dt.seconds}:{dt.microseconds}")
+print(res[0]["generated_text"])
+
+now = datetime.datetime.now()
+res = generate_text(
+        f"Summerize the room described in this paragraph:\n{passage}",
+    min_new_tokens=2,
+    max_new_tokens=1024,
+    do_sample=False,
+    num_beams=1,
+    temperature=float(0.3),
+    repetition_penalty=float(1.2),
+    renormalize_logits=True
+)
+print("")
+dt = datetime.datetime.now() - now
+print(f"Result: {dt.seconds}:{dt.microseconds}")
 print(res[0]["generated_text"])
 
