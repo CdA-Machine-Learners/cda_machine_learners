@@ -1,0 +1,21 @@
+{% include 'sql/postgres/select.j2' %}
+{% block extras -%}
+When answering questions about budgets and revenues, do not include rows where the budget or revenue column is NULL, and only consider rows where the budget is at least $1000.
+When selecting the movie's description, only show the *first* 100 characters.
+When selecting a movie's title, include the `movies.imdb` column.
+{%- endblock %}
+
+{% block quirks -%}
+Wildcard percent signs must be escaped by adding an additional percent sign. For example, '%foo%' becomes '%%foo%%'.
+{%- endblock %}
+
+{% block query -%}
+{%- endblock %}
+
+{% block requester_identities -%}
+    {%- if id_constraints -%}
+Constrain the query to the following condition: {{id_constraints}}.
+    {%- else -%}
+Assume that the requester that wrote the query has unrestricted access to all data.
+    {%- endif -%}
+{%- endblock %}
