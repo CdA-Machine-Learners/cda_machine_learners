@@ -9,8 +9,6 @@ config.yaml
 */venv
 *__pycache__
 
-*.md
-
 # Docker
 think_big_2023/docker/redis.conf
 think_big_2023/docker/sysctl.conf
