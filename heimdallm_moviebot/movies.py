@@ -1,4 +1,4 @@
-import os
+import os, settings
 from typing import Sequence
 
 import jinja2
@@ -18,14 +18,16 @@ from heimdallm.bifrosts.sql.postgres.select.validator import (
 )
 from heimdallm.llm import LLMIntegration
 
+import settings
+
 
 def make_conn():
     """returns a connection to the movie database"""
     conn = psycopg2.connect(
-        host="localhost",
-        dbname="movies",
-        user="postgres",
-        password=os.getenv("POSTGRES_PASSWORD"),
+        host=settings.HOST,
+        dbname=settings.DBNAME,
+        user=settings.USER,
+        password=settings.PASSWORD,
     )
     return conn
 
