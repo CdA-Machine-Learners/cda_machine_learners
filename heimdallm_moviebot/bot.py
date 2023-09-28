@@ -1,7 +1,7 @@
 import os
 from typing import cast
 
-import discord
+import discord, settings
 from discord import app_commands
 from dotenv import load_dotenv
 from heimdallm.bifrosts.sql import exc
@@ -9,10 +9,11 @@ from heimdallm.llm_providers import openai
 
 import movies
 import query
+import settings
 
 load_dotenv()
 
-CDA_GUILD = discord.Object(id=1067314714373263370)
+CDA_GUILD = discord.Object(id=settings.SERVER_ID)
 
 
 class DiscordClient(discord.Client):
@@ -37,7 +38,7 @@ async def on_ready():
 
 
 # openai will compose the query
-llm = openai.Client(api_key=os.getenv("OPENAI_API_SECRET"), model="gpt-4")
+llm = openai.Client(api_key=settings.OPENAI_API_KEY, model=settings.MODEL)
 
 # the bifrost is a callable that can produce sql queries from natural language
 bifrost = movies.build_bifrost(llm)
@@ -150,4 +151,4 @@ async def movie_query(interaction: discord.Interaction, nl_query: str):
     )
 
 
-movie_client.run(cast(str, os.getenv("DISCORD_TOKEN")))
+movie_client.run(cast(str, settings.DISCORD_TOKEN))

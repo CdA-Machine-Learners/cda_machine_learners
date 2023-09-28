@@ -18,14 +18,16 @@ from heimdallm.bifrosts.sql.postgres.select.validator import (
 )
 from heimdallm.llm import LLMIntegration
 
+import settings
+
 
 def make_conn():
     """returns a connection to the movie database"""
     conn = psycopg2.connect(
-        host="localhost",
-        dbname="movies",
-        user="postgres",
-        password=os.getenv("POSTGRES_PASSWORD"),
+        host=settings.HOST,
+        dbname=settings.DBNAME,
+        user=settings.USER,
+        password=settings.PASSWORD,
     )
     return conn
 
@@ -64,7 +66,7 @@ def build_bifrost(llm: LLMIntegration) -> Bifrost:
     """build the thing that will produce sql queries from natural language"""
 
     # we'll use the movie database schema for context
-    db_schema = open("movie-schema.sql", "r").read()
+    db_schema = open(settings.SCHEMA, "r").read()
 
     validator = ConstraintValidator()
     validators = [validator]
