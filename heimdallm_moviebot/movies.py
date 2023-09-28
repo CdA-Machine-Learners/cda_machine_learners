@@ -1,4 +1,4 @@
-import os, settings
+import os
 from typing import Sequence
 
 import jinja2
@@ -66,7 +66,7 @@ def build_bifrost(llm: LLMIntegration) -> Bifrost:
     """build the thing that will produce sql queries from natural language"""
 
     # we'll use the movie database schema for context
-    db_schema = open("movie-schema.sql", "r").read()
+    db_schema = open(settings.SCHEMA, "r").read()
 
     validator = ConstraintValidator()
     validators = [validator]
