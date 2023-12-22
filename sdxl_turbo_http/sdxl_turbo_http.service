@@ -1,0 +1,15 @@
+[Unit]
+Description=Run the node server
+Documentation=/opt/sdxl_turbo_http/README.md
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=python -m uvicorn sdxl_turbo_http:app --host 0.0.0.0 --port 8088
+Restart=always
+WorkingDirectory=/opt/sdxl_turbo_http
+Environment="PATH=/opt/sdxl_turbo_http/venv/bin"
+
+[Install]
+WantedBy=multi-user.target

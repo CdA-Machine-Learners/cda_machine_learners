@@ -72,7 +72,7 @@ audio_file = f"{sys.argv[1]}.mp3"
 exec( f"ffmpeg -i output.wav -vn -ar 44100 -ac 2 -b:a 192k {audio_file}")
 
 # Add the video
-exec( f"ffmpeg -i {audio_file} -filter_complex movie=video.mp4:loop=0,setpts=N/FRAME_RATE/TB -shortest {sys.argv[1]}.mp4")
+#exec( f"ffmpeg -i {audio_file} -filter_complex movie=video.mp4:loop=0,setpts=N/FRAME_RATE/TB -shortest {sys.argv[1]}.mp4")
 
 # Clean up
 print("Clean up")
