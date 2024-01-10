@@ -53,59 +53,62 @@ tail_len = 10
 print("")
 print("")
 
+clip_files = []
+
 frame_count = 0
 clips = 0
-file_list = f"{sys.argv[1]}_input.txt"
-with open(file_list, "w") as filez:
-    with open(f"{sys.argv[1]}_ffmpeg.sh", "w") as f:
-        while (frame_count + tail_len) * frame_interval < total_frames:
-            # Read a frame from the video
-            ret, frame = cap.read()
-            if not ret:
-                break
+with open(f"{sys.argv[1]}_ffmpeg.sh", "w") as f:
+    while (frame_count + tail_len) * frame_interval < total_frames:
+        # Read a frame from the video
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-            # Convert the frame to an Image object
-            opencv_image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(opencv_image_rgb)
+        # Convert the frame to an Image object
+        opencv_image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(opencv_image_rgb)
 
-            # Detect people in the frame
-            ppl_detected = detect_ppl(pil_image)
-            sys.stdout.write(f"Frame {round((frame_count*frame_interval * 100)/total_frames, 1)}%: {ppl_detected}   \r")
+        # Detect people in the frame
+        ppl_detected = detect_ppl(pil_image)
+        sys.stdout.write(f"Frame {round((frame_count*frame_interval * 100)/total_frames, 1)}%: {ppl_detected}   \r")
 
-            # Shit logic to dump out the videos
-            if ppl_detected:
-                if hit_start == -1:
-                    hit_start = frame_count
-                misses = 0
-            elif hit_start >= 0:
-                duration = frame_count - hit_start
-                misses += 1
-                if misses >= miss_max:
-                    if duration >= 5:
-                        filename = f"{sys.argv[1]}_cut_video{clips:04d}.mp4"
-                        action = f"ffmpeg -i {sys.argv[1]} -ss {hit_start-miss_max*2-2} -t {duration+misses} -c:v copy -c:a copy {filename}"
-                        print(f"\r{action}")
-                        f.write(f"{action}\n")
-                        filez.write(f"{filename}\n")
+        # Shit logic to dump out the videos
+        if ppl_detected:
+            if hit_start == -1:
+                hit_start = frame_count
+            misses = 0
+        elif hit_start >= 0:
+            duration = frame_count - hit_start
+            misses += 1
+            if misses >= miss_max:
+                if duration >= 5:
+                    clip_files.append( f"{sys.argv[1]}_cut_video{clips:04d}.mp4" )
+                    action = f"ffmpeg -i {sys.argv[1]} -ss {hit_start-miss_max*2-2} -t {duration+misses} -c:v copy -c:a copy {clip_files[-1]}"
+                    print(f"\r{action}")
+                    f.write(f"{action}\n")
 
-                        clips += 1
-                    hit_start = -1
+                    clips += 1
+                hit_start = -1
 
 
-                # Save the frame as an image (e.g., in PNG format)
-                #output_frame_filename = f'frame_{frame_count:04d}.png'
-                #cv2.imwrite(output_frame_filename, frame)
+            # Save the frame as an image (e.g., in PNG format)
+            #output_frame_filename = f'frame_{frame_count:04d}.png'
+            #cv2.imwrite(output_frame_filename, frame)
 
-            # Move to the next frame based on the frame interval
-            frame_count += 1
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count * frame_interval)
+        # Move to the next frame based on the frame interval
+        frame_count += 1
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count * frame_interval)
 
-        # Always write out the last 10 seconds
-        filename = f"{sys.argv[1]}_cut_video{clips:04d}.mp4"
-        action = f"ffmpeg -i {sys.argv[1]} -ss {frame_count} -t {tail_len} -c:v copy -c:a copy {filename}"
-        f.write(f"{action}\n")
-        f.write(f"ffmpeg -f concat -i {file_list} -c:v copy -c:a copy {sys.argv[1]}_combined.mp4\n")
-        filez.write(f"{filename}\n")
+    # Always write out the last 10 seconds
+    clip_files.append( f"{sys.argv[1]}_cut_video{clips:04d}.mp4" )
+    action = f"ffmpeg -i {sys.argv[1]} -ss {frame_count} -t {tail_len} -c:v copy -c:a copy {clip_files[-1]}"
+    print(action)
+    f.write(f"{action}\n\n")
+
+    # finally, write out the concat command
+    action = f"mencoder -ovc copy -oac pcm {' '.join(clip_files)} -o {sys.argv[1]}_edited.mp4"
+    print(action)
+    f.write(f"{action}\n")
 
 print()
 print()
