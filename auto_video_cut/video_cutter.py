@@ -110,6 +110,11 @@ with open(f"{sys.argv[1]}_ffmpeg.sh", "w") as f:
     print(action)
     f.write(f"{action}\n")
 
+    # The last thing to reencode so youtube is happy
+    action = f"ffmpeg -i {sys.argv[1]}_edited.mp4  -c:v libx264 -c:a aac {sys.argv[1]}_reencoded.mp4"
+    print(action)
+    f.write(f"{action}\n")
+
 print()
 print()
 
