@@ -28,7 +28,7 @@ COMPLETION_ENGINES = [
 CHAT_ENGINES = [
     "gpt-3.5-turbo",
     # "gpt-3.5-turbo-0613",
-    # "gpt-4",
+    "gpt-4",
 ]
 
 

@@ -3,6 +3,9 @@
 .openai_token
 config.yml
 config.yaml
+config2.yml
+config2.yaml
+
 
 # Python
 .env
