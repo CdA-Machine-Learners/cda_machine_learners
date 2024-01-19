@@ -12,3 +12,5 @@ pypdf
 InstructorEmbedding
 sentence-transformers
 openai
+
+vllm
