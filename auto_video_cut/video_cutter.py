@@ -1,15 +1,24 @@
+import subprocess
+
 import cv2, sys
 from transformers import YolosImageProcessor, YolosForObjectDetection
+from transformers import DetrImageProcessor, DetrForObjectDetection
 from PIL import Image
-import torch
+import torch, threading, shutil
+from pathlib import Path
 import requests, datetime
 
-# Setup the model
-model = YolosForObjectDetection.from_pretrained('hustvl/yolos-tiny')
-image_processor = YolosImageProcessor.from_pretrained("hustvl/yolos-tiny")
+# Much faster, but not as accurate
+#model = YolosForObjectDetection.from_pretrained('hustvl/yolos-tiny')
+#processor = YolosImageProcessor.from_pretrained("hustvl/yolos-tiny")
+
+# Much slower, but more accurate
+processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", revision="no_timm")
+model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50", revision="no_timm")
+
 
 def detect_ppl( image: Image ):
-    inputs = image_processor(images=image, return_tensors="pt")
+    inputs = processor(images=image, return_tensors="pt")
     outputs = model(**inputs)
 
     # model predicts bounding boxes and corresponding COCO classes
@@ -19,9 +28,9 @@ def detect_ppl( image: Image ):
 
     # print results
     target_sizes = torch.tensor([image.size[::-1]])
-    results = image_processor.post_process_object_detection(outputs, threshold=0.9, target_sizes=target_sizes)[0]
+    results = processor.post_process_object_detection(outputs, threshold=0.9, target_sizes=target_sizes)[0]
     for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
-        if model.config.id2label[label.item()] == "person":
+        if model.config.id2label[label.item()] in ("person", "dog", "animal"):
             #print(f"{round(score.item(), 3)}")
             return True
         #box = [round(i, 2) for i in box.tolist()]
@@ -32,6 +41,22 @@ def detect_ppl( image: Image ):
 
     return False
 
+
+# This is actually 3x faster than skipping to the frame directly
+global_frame = None
+def skip_frames( cap, frame_num ):
+    global global_frame
+    ret, frame = (True, None)
+    for _ in range(frame_num):
+        ret, frame = cap.read()
+        if not ret:
+            global_frame = None
+            return None
+
+    global_frame = frame
+    return frame
+
+
 # Open the video file
 cap = cv2.VideoCapture(sys.argv[1])
 
@@ -39,6 +64,14 @@ cap = cv2.VideoCapture(sys.argv[1])
 if not cap.isOpened():
     print("Error: Could not open video file.")
     exit()
+    
+# Use Path.mkdir() to create the directory
+try:
+    shutil.rmtree('cuts')
+except:
+    pass
+path = Path('cuts')
+path.mkdir(parents=True, exist_ok=True)
 
 # Frame extraction interval (1 frame per second)
 frame_interval = int(cap.get(cv2.CAP_PROP_FPS))
@@ -48,70 +81,89 @@ hit_start = -1
 misses = 0
 
 miss_max = 3
-tail_len = 10
+start_stop_time = 10
 
 print("")
 print("")
 
 clip_files = []
 
-frame_count = 0
-clips = 0
-with open(f"{sys.argv[1]}_ffmpeg.sh", "w") as f:
-    while (frame_count + tail_len) * frame_interval < total_frames:
-        # Read a frame from the video
-        ret, frame = cap.read()
-        if not ret:
+# Start running the script
+script_path = f"cuts/{sys.argv[1]}_ffmpeg.sh"
+with open(script_path, "w") as f:
+    # Setup my start and stop
+    runtime = start_stop_time
+    total_runtime = round(total_frames / (frame_interval + 1))
+    print(f"Total Runtime: {total_runtime} seconds")
+
+    # Skip The Frames to our start runtime
+    skip_frames( cap, runtime * frame_interval )
+
+    # Always add the first start/stop time
+    clip_files.append(f"cuts/{sys.argv[1]}_cut_video{len(clip_files):04d}.mp4")
+    action = f"ffmpeg -i {sys.argv[1]} -ss 0 -t {start_stop_time} -c:v copy -c:a copy {clip_files[-1]}"
+    print(action)
+    f.write(f"{action}\n")
+
+    # Move to the next frame based on the frame interval
+    while runtime < total_runtime - start_stop_time - miss_max:
+        # Pull in the global frame from the thread
+        if (frame := global_frame) is None:
+            print("Encountered an error. Truncating the video.")
             break
+
+        # Start the next Frame while we start the detect ppl
+        thread = threading.Thread(target=skip_frames, args=(cap, frame_interval))
+        thread.start()
 
         # Convert the frame to an Image object
         opencv_image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(opencv_image_rgb)
 
-        # Detect people in the frame
+        # Detect people in the frame (Slow)
         ppl_detected = detect_ppl(pil_image)
-        sys.stdout.write(f"Frame {round((frame_count*frame_interval * 100)/total_frames, 1)}%: {ppl_detected}   \r")
+
+        # Combine the threads
+        sys.stdout.write(f"Frame {round((runtime * 100)/total_runtime, 1)}%: {ppl_detected}   \r")
 
         # Shit logic to dump out the videos
         if ppl_detected:
             if hit_start == -1:
-                hit_start = frame_count
+                hit_start = runtime
             misses = 0
         elif hit_start >= 0:
-            duration = frame_count - hit_start
+            duration = runtime - hit_start
             misses += 1
             if misses >= miss_max:
                 if duration >= 5:
-                    clip_files.append( f"{sys.argv[1]}_cut_video{clips:04d}.mp4" )
-                    action = f"ffmpeg -i {sys.argv[1]} -ss {hit_start-miss_max*2-2} -t {duration+misses} -c:v copy -c:a copy {clip_files[-1]}"
+                    clip_files.append( f"cuts/{sys.argv[1]}_cut_video{len(clip_files):04d}.mp4" )
+                    action = f"ffmpeg -i {sys.argv[1]} -ss {hit_start-miss_max*2-2} -t {duration+miss_max} -c:v copy -c:a copy {clip_files[-1]}"
                     print(f"\r{action}")
                     f.write(f"{action}\n")
 
-                    clips += 1
                 hit_start = -1
 
-
             # Save the frame as an image (e.g., in PNG format)
-            #output_frame_filename = f'frame_{frame_count:04d}.png'
+            #output_frame_filename = f'frame_{runtime:04d}.png'
             #cv2.imwrite(output_frame_filename, frame)
 
-        # Move to the next frame based on the frame interval
-        frame_count += 1
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count * frame_interval)
+        # Step the runtime forward
+        thread.join()
+        runtime += 1
 
     # Always write out the last 10 seconds
-    clip_files.append( f"{sys.argv[1]}_cut_video{clips:04d}.mp4" )
-    action = f"ffmpeg -i {sys.argv[1]} -ss {frame_count} -t {tail_len} -c:v copy -c:a copy {clip_files[-1]}"
+    clip_files.append( f"cuts/{sys.argv[1]}_cut_video{len(clip_files):04d}.mp4" )
+    action = f"ffmpeg -i {sys.argv[1]} -ss {total_runtime - start_stop_time} -t {start_stop_time} -c:v copy -c:a copy {clip_files[-1]}"
     print(action)
     f.write(f"{action}\n\n")
 
     # finally, write out the concat command
-    action = f"mencoder -ovc copy -oac pcm {' '.join(clip_files)} -o {sys.argv[1]}_edited.mp4"
+    action = f"mencoder -ovc copy -oac pcm {' '.join(clip_files)} -o cuts/{sys.argv[1]}_edited.mp4"
     print(action)
     f.write(f"{action}\n")
 
     # The last thing to reencode so youtube is happy
-    action = f"ffmpeg -i {sys.argv[1]}_edited.mp4  -c:v libx264 -c:a aac {sys.argv[1]}_reencoded.mp4"
+    action = f"ffmpeg -i cuts/{sys.argv[1]}_edited.mp4  -c:v libx264 -c:a aac {sys.argv[1]}_reencoded.mp4"
     print(action)
     f.write(f"{action}\n")
 
@@ -122,3 +174,9 @@ print()
 cap.release()
 cv2.destroyAllWindows()
 
+# Use subprocess.run() to run the Bash script
+try:
+    subprocess.run(['bash', script_path], check=True, text=True)
+    print("Video edited uccessfully")
+except subprocess.CalledProcessError as e:
+    print(f"Error executing Bash script: {e}")
