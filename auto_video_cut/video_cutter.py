@@ -74,7 +74,7 @@ path = Path('cuts')
 path.mkdir(parents=True, exist_ok=True)
 
 # Frame extraction interval (1 frame per second)
-frame_interval = int(cap.get(cv2.CAP_PROP_FPS))
+frame_interval = int(cap.get(cv2.CAP_PROP_FPS)) + 1
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 hit_start = -1
@@ -87,13 +87,14 @@ print("")
 print("")
 
 clip_files = []
+debug = []
 
 # Start running the script
 script_path = f"cuts/{sys.argv[1]}_ffmpeg.sh"
 with open(script_path, "w") as f:
     # Setup my start and stop
     runtime = start_stop_time
-    total_runtime = round(total_frames / (frame_interval + 1))
+    total_runtime = round(total_frames / frame_interval)
     print(f"Total Runtime: {total_runtime} seconds")
 
     # Skip The Frames to our start runtime
@@ -128,6 +129,7 @@ with open(script_path, "w") as f:
 
         # Shit logic to dump out the videos
         if ppl_detected:
+            debug.append( pil_image )
             if hit_start == -1:
                 hit_start = runtime
             misses = 0
@@ -137,10 +139,16 @@ with open(script_path, "w") as f:
             if misses >= miss_max:
                 if duration >= 5:
                     clip_files.append( f"cuts/{sys.argv[1]}_cut_video{len(clip_files):04d}.mp4" )
-                    action = f"ffmpeg -i {sys.argv[1]} -ss {hit_start-miss_max*2-2} -t {duration+miss_max} -c:v copy -c:a copy {clip_files[-1]}"
+                    action = f"ffmpeg -i {sys.argv[1]} -ss {hit_start-miss_max} -t {duration+miss_max+2} -c:v copy -c:a copy {clip_files[-1]}"
                     print(f"\r{action}")
                     f.write(f"{action}\n")
 
+                    # Debug dump
+                    for idx, img in enumerate(debug):
+                        img.save(clip_files[-1]+ f"{idx}.png")
+
+                # Reset
+                debug = []
                 hit_start = -1
 
             # Save the frame as an image (e.g., in PNG format)
