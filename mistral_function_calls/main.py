@@ -62,9 +62,9 @@ device = "cuda"
 #device = "cpu"
 
 # Load up the model and teh tokenzier
-model = AutoModelForCausalLM.from_pretrained('Trelis/Mistral-7B-Instruct-v0.2-function-calling-v3', trust_remote_code=True)#, torch_dtype=torch.float16)
-model.half()
-model.to(device)
+model = AutoModelForCausalLM.from_pretrained('Trelis/Mistral-7B-Instruct-v0.2-function-calling-v3', trust_remote_code=True, load_in_8bit=True, device=device)#, torch_dtype=torch.float16)
+#model.half()
+#model.to(device)
 
 tokenizer = AutoTokenizer.from_pretrained("Trelis/Mistral-7B-Instruct-v0.2-function-calling-v3", trust_remote_code=True)
 

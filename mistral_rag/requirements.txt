@@ -1,0 +1,16 @@
+torch 
+datasets 
+transformers 
+tensorflow 
+langchain 
+playwright 
+html2text 
+sentence_transformers 
+faiss-cpu
+accelerate 
+peft 
+bitsandbytes 
+trl
+nest_asyncio
+langchain-community
+bs4
