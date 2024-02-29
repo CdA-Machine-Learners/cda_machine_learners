@@ -26,8 +26,11 @@ import matplotlib.pyplot as plt
 import time
 from tqdm import tqdm
 
-MODEL_PATH = "~/_/models/phi-2"
-MODEL_PATH = os.path.expanduser(MODEL_PATH)
+# MODEL_PATH, REV = "~/_/models/phi-2", 'whatrev'
+# MODEL_PATH = os.path.expanduser(MODEL_PATH)
+
+
+MODEL_PATH = "microsoft/phi-2"
 
 try:
     model_loaded
@@ -41,6 +44,7 @@ except:
         # load_in_8bit=True,
         trust_remote_code=False,
         attn_implementation="flash_attention_2",
+        # revision=REV,
     )
     model.eval()
 
@@ -101,17 +105,21 @@ def test_batch_size(batch_size):
         x + keep_going,
         tokenize=False, return_tensors=False, add_generation_prompt=True
     ) for x in data[:batch_size]]
-    tokenized = tokenizer(inp, padding='longest', return_tensors='pt', add_special_tokens=True)
-    tokenized['attention_mask'] = tokenized['attention_mask'].to('cuda')
-    tokenized['input_ids'] = tokenized['input_ids'].to('cuda')
 
+    tokenized = tokenizer(inp, padding='longest', return_tensors='pt', add_special_tokens=True)
+    # tokenized['attention_mask'] = tokenized['attention_mask'].to('cuda')
+    # tokenized['input_ids'] = tokenized['input_ids'].to('cuda')
+
+    print(tokenized)
     # Generate output and measure time
     start_time = time.time()
     out_toks = model.generate(
         **tokenized,
         max_new_tokens=32,  # VARIABLE
         use_cache=True,  # (huge slowdown without)
+        prompt_lookup_num_tokens=10,
     )
+
     elapsed_time = time.time() - start_time
 
     # trim off the query prefix (model.generate returns it)
@@ -125,7 +133,7 @@ def test_batch_size(batch_size):
     return tokenized['input_ids'], out_toks, toks_per_second
 
 # Test different batch sizes
-batch_sizes = [1, 2, 4, 8, 16]
+batch_sizes = [1, 2, 4, 8]
 results = []
 for bs in tqdm(batch_sizes):
     inp_toks, out_toks, tok_per_s = test_batch_size(bs)
