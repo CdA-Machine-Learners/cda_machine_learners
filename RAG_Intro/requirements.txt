@@ -1,0 +1,7 @@
+torch==2.2.0
+transformers==4.38.1
+chromadb==0.4.24
+pypdf2==3.0.1
+nltk==3.8.1
+bitsandbytes==0.42.0
+accelerate==0.27.2
