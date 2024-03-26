@@ -1,7 +1,11 @@
 
 
 # Set up an Ubuntu CUDA server for LLM development
-  ## Install Ubuntu on a new partition or fresh server build; optionally configure GRUB for 
+  ## Install Ubuntu Desktop 
+  > - If adding Linux to an existing Windows server, create a new partition or separate drive for the Ubuntu Operating System
+  > - Download latest Long Term Stable (LTS) release (ex. 22.04.4) installer ISO from: https://ubuntu.com/download/desktop
+> 
+  > - Optionally configure GRUB for boot management to select between Windows and Linux
 
 
   ## Install current NVIDIA native device drivers for target video card
