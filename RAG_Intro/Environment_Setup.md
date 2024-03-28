@@ -4,7 +4,7 @@
   ## Install Ubuntu Desktop 
   > - If adding Linux to an existing Windows server, create a new partition or separate drive for the Ubuntu Operating System
   > - Download latest Long Term Stable (LTS) release (ex. 22.04.4) installer ISO from: https://ubuntu.com/download/desktop
-> 
+  > - Create a bootable USB drive from the ISO using Balena Etcher: https://etcher.balena.io/ 
   > - Optionally configure GRUB for boot management to select between Windows and Linux
 
 
