@@ -6,13 +6,12 @@ Install requirements (note: only direct dependencies are frozen):
 pip install requirements.txt
 ```
 
-Create `.env` file with the following env vars:
+copy example.settings.py to settings.py
+```
+cp example.settings.py settings.py
+```
 
-- `DISCORD_TOKEN`
-- `OPENAI_API_SECRET`
-- `POSTGRES_PASSWORD`
-
-Edit `movies.make_conn()` to have the correct db connection info.
+Edit settings.py to match your settings / chat bot ID, discord id / openai etc.
 
 Then run:
 
